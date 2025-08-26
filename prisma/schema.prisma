@@ -1,0 +1,679 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // Can be changed to other databases as needed
+  url      = env("DATABASE_URL")
+}
+
+// Role-based authorization
+enum Role {
+  ADMIN    // Full control over everything
+  EDITOR   // Can do everything except delete
+  USER     // Customer with limited access
+}
+
+// Authentication method enum
+enum AuthMethod {
+  EMAIL
+  PHONE
+}
+
+// User model with authentication and profile details
+model User {
+  id               String         @id @default(uuid())
+  email            String?        @unique // Optional, but must have either email or phone
+  phoneNumber      String?        @unique // Optional, but must have either email or phone
+  authMethod       AuthMethod // Specifies whether email or phone is the primary auth method
+  password         String
+  firstName        String?
+  lastName         String?
+  role             Role           @default(USER)
+  isVerified       Boolean        @default(false) // Whether email/phone is verified
+  verificationToken String? // For verifying email or phone
+  resetToken       String? // For password reset
+  resetTokenExpiry DateTime? // Expiry for reset token
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  // User relations
+  addresses     Address[]
+  orders        Order[]
+  reviews       Review[]
+  wishlist      WishlistItem[]
+  cart          CartItem[]
+  appointments  Appointment[]
+  consultations Consultation[]
+
+  // Custom validator (needs application-level enforcement):
+  // Either email or phoneNumber must be provided
+
+  @@index([email])
+  @@index([phoneNumber])
+}
+
+// One-time verification codes for phone auth
+model VerificationCode {
+  id          String   @id @default(uuid())
+  code        String
+  phoneNumber String
+  email       String?
+  isUsed      Boolean  @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([phoneNumber])
+  @@index([email])
+}
+
+// User addresses
+model Address {
+  id         String   @id @default(uuid())
+  street     String
+  city       String
+  state      String
+  postalCode String
+  country    String
+  isDefault  Boolean  @default(false)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  orders     Order[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Product management
+model Product {
+  id                String            @id @default(uuid())
+  title             String
+  description       String            @db.Text
+  shortDescription  String?
+  weight            Float?
+  size              String?
+  price             Float
+  comparePrice      Float?
+  sku               String            @unique
+  status            ProductStatus     @default(DRAFT)
+  rating            Float?            @default(0)
+  stockQuantity     Int               @default(0)
+  lowStockThreshold Int               @default(10)
+  isBestSeller      Boolean           @default(false)
+  isNewProduct      Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Product relations
+  category         Category?         @relation(fields: [categoryId], references: [id])
+  categoryId       String?
+  variants         ProductVariant[]
+  images           ProductImage[]
+  tags             ProductTag[]
+  reviews          Review[]
+  cartItems        CartItem[]
+  orderItems       OrderItem[]
+  wishlistItems    WishlistItem[]
+  productDiscounts ProductDiscount[]
+  faqs             ProductFAQ[]
+
+  // MODIFICATION: Added relation to TaxCategory
+  taxCategory    TaxCategory?      @relation(fields: [taxCategoryId], references: [id])
+  taxCategoryId  String?
+
+  // Additional product metadata
+  madeOf   String?
+  includes String?
+
+  // SEO fields
+  seoTitle      String?
+  seoDescription String? @db.Text
+  internalNotes String? @db.Text
+
+  @@index([categoryId])
+  @@index([taxCategoryId])
+  @@index([status])
+  @@index([isBestSeller])
+  @@index([isNewProduct])
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid())
+  name          String
+  sku           String   @unique
+  price         Float
+  stockQuantity Int
+  attributes    Json // Store variant attributes (size, color, etc.)
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId     String
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([productId])
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  url       String
+  alt       String?
+  position  Int      @default(0)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+}
+
+model ProductTag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  products  Product[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductFAQ {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String   @db.Text
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+}
+
+// Category management
+model Category {
+  id            String           @id @default(uuid())
+  name          String
+  description   String?          @db.Text
+  slug          String           @unique
+  image         String?
+  parentId      String?
+  parent        Category?        @relation("CategorySubcategories", fields: [parentId], references: [id])
+  subcategories Category[]       @relation("CategorySubcategories")
+  products      Product[]
+  discounts     CategoryDiscount[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([parentId])
+}
+
+// Order management
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  user            User          @relation(fields: [userId], references: [id])
+  userId          String
+  items           OrderItem[]
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   String?
+  shippingAddress Address       @relation(fields: [addressId], references: [id])
+  addressId       String
+  subtotal        Float
+  tax             Float
+  shippingCost    Float
+  discount        Float         @default(0)
+  total           Float
+  notes           String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id               String          @id @default(uuid())
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId          String
+  product          Product         @relation(fields: [productId], references: [id])
+  productId        String
+  variant          ProductVariant? @relation(fields: [productVariantId], references: [id])
+  productVariantId String?
+  quantity         Int
+  price            Float
+  total            Float
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+// Shopping cart
+model CartItem {
+  id               String          @id @default(uuid())
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String
+  product          Product         @relation(fields: [productId], references: [id])
+  productId        String
+  variant          ProductVariant? @relation(fields: [productVariantId], references: [id])
+  productVariantId String?
+  quantity         Int
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([productId])
+}
+
+model WishlistItem {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+// Review system
+model Review {
+  id        String       @id @default(uuid())
+  user      User         @relation(fields: [userId], references: [id])
+  userId    String
+  product   Product      @relation(fields: [productId], references: [id])
+  productId String
+  rating    Int // 1-5 stars
+  comment   String?      @db.Text
+  status    ReviewStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([productId])
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Enhanced Marketing - Discounts with different types
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum DiscountApplicability {
+  ALL_PRODUCTS // Applies to all products
+  SPECIFIC_PRODUCTS // Applies to specific products
+  SPECIFIC_CATEGORIES // Applies to specific categories
+  NEW_PRODUCTS // Applies to products marked as new
+  BEST_SELLERS // Applies to products marked as best sellers
+  FIRST_PURCHASE // Applies to first purchase of a user
+  BUNDLE // Applies when buying multiple items together
+  VOLUME // Applies when buying quantity above threshold
+}
+
+model Discount {
+  id                String             @id @default(uuid())
+  name              String
+  code              String             @unique
+  description       String?            @db.Text
+  discountType      DiscountType
+  discountValue     Float
+  applicability     DiscountApplicability
+  minimumPurchase   Float?
+  maximumDiscount   Float? // Cap on maximum discount amount
+  validFrom         DateTime
+  validTo           DateTime
+  isActive          Boolean            @default(true)
+  usageLimit        Int? // Maximum number of times this discount can be used
+  usageCount        Int                @default(0)
+  perUserLimit      Int? // Maximum number of times a user can use this discount
+
+  // Specific applicability relations
+  products   ProductDiscount[]
+  categories CategoryDiscount[]
+
+  // Additional discount conditions
+  minQuantity      Int? // Minimum quantity for volume discounts
+  newDaysThreshold Int? // Number of days a product is considered "new"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductDiscount {
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId  String
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  discountId String
+
+  @@id([productId, discountId])
+}
+
+model CategoryDiscount {
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  discountId String
+
+  @@id([categoryId, discountId])
+}
+
+// Track discount usage per user
+model UserDiscountUsage {
+  id         String   @id @default(uuid())
+  userId     String
+  discountId String
+  usageCount Int      @default(0)
+  lastUsed   DateTime @default(now())
+
+  @@unique([userId, discountId])
+  @@index([userId])
+  @@index([discountId])
+}
+
+// Content Management - Blog
+model BlogPost {
+  id               String        @id @default(uuid())
+  title            String
+  slug             String        @unique
+  content          String        @db.Text
+  shortDescription String?
+  image            String?
+  author           String
+  tags             BlogTag[]
+  category         BlogCategory? @relation(fields: [categoryId], references: [id])
+  categoryId       String?
+  status           ContentStatus @default(DRAFT)
+  seoTitle         String?
+  seoDescription   String?       @db.Text
+  internalNotes    String?       @db.Text
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([categoryId])
+  @@index([status])
+}
+
+model BlogCategory {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  posts     BlogPost[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model BlogTag {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  posts     BlogPost[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// Content Management - Testimonials
+model Testimonial {
+  id               String        @id @default(uuid())
+  title            String?
+  content          String        @db.Text
+  author           String
+  avatar           String?
+  rating           Int?
+  shortDescription String?
+  status           ContentStatus @default(DRAFT)
+  position         Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+// Content Management - Gallery
+model GalleryCategory {
+  id        String        @id @default(uuid())
+  name      String        @unique
+  items     GalleryItem[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model GalleryItem {
+  id          String           @id @default(uuid())
+  title       String
+  description String?          @db.Text
+  imageUrl    String
+  category    GalleryCategory? @relation(fields: [categoryId], references: [id])
+  categoryId  String?
+  stars       Int?
+  position    Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([categoryId])
+}
+
+// Content Management - News & Media
+model NewsArticle {
+  id               String        @id @default(uuid())
+  title            String
+  shortDescription String?       @db.Text
+  content          String        @db.Text
+  previewImage     String?
+  status           ContentStatus @default(DRAFT)
+  publishedDate    DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// Contact Management
+model ContactMessage {
+  id        String        @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String        @db.Text
+  status    ContactStatus @default(NEW)
+  reply     String?       @db.Text
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+enum ContactStatus {
+  NEW
+  IN_PROGRESS
+  RESPONDED
+  CLOSED
+}
+
+// Appointment and Consultation
+model Appointment {
+  id        String            @id @default(uuid())
+  user      User              @relation(fields: [userId], references: [id])
+  userId    String
+  date      DateTime
+  status    AppointmentStatus @default(PENDING)
+  notes     String?           @db.Text
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([userId])
+}
+
+model Consultation {
+  id        String             @id @default(uuid())
+  user      User               @relation(fields: [userId], references: [id])
+  userId    String
+  date      DateTime
+  status    ConsultationStatus @default(PENDING)
+  notes     String?            @db.Text
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([userId])
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum ConsultationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+// Site Settings & Configuration
+model SiteSettings {
+  id           String   @id @default(uuid())
+  settingKey   String   @unique
+  settingValue String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Analytics data
+model SalesRecord {
+  id        String   @id @default(uuid())
+  date      DateTime
+  revenue   Float
+  orders    Int
+  customers Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+}
+
+model InventoryLog {
+  id        String   @id @default(uuid())
+  action    String
+  quantity  Int
+  productId String
+  variant   String?
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+// Marketing Components
+model MarketingBanner {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  imageUrl    String
+  linkUrl     String?
+  isActive    Boolean  @default(true)
+  position    Int      @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Partners
+model Partner {
+  id        String   @id @default(uuid())
+  name      String
+  logo      String
+  website   String?
+  isActive  Boolean  @default(true)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Payment Gateway Configuration
+model PaymentGateway {
+  id             String   @id @default(uuid())
+  name           String // e.g., "Razorpay"
+  isActive       Boolean  @default(false)
+  configSettings Json // Stores API keys and other config (encrypted)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// Shipping API Configuration
+model ShippingProvider {
+  id             String   @id @default(uuid())
+  name           String // e.g., "ShipEngine"
+  isActive       Boolean  @default(false)
+  configSettings Json // Stores API keys and other config (encrypted)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------- //
+// NEW: Custom Tax Models for Admin Panel Management
+// ---------------------------------------------------------------- //
+
+// Groups products that share the same tax rules.
+model TaxCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  products    Product[]
+  taxRates    TaxRate[] // A category can have multiple tax rates (e.g., CGST + SGST)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Defines a specific tax rate, its conditions, and location.
+model TaxRate {
+  id        String   @id @default(uuid())
+  name      String // e.g., "CGST", "SGST", "VAT"
+  rate      Float // The tax percentage (e.g., 9 for 9%)
+  country   String // ISO 3166-1 alpha-2 country code (e.g., "IN" for India)
+  state     String? // State/Province, if applicable
+  zipCode   String? // Zip/Postal code, for local taxes
+  priority  Int      @default(1) // Order of calculation for multiple taxes
+  isCompound Boolean  @default(false) // Whether this tax is applied on top of others
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A tax rate can apply to multiple categories
+  taxCategories TaxCategory[]
+
+  @@index([country, state, zipCode])
+}
