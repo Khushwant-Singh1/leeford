@@ -3,16 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUp, ArrowDown } from "lucide-react";
-import { ProductPerformanceApi } from "@/lib/api/productperformance";
-
-export interface ProductPerformance {
-  id: string;
-  name: string;
-  category: string;
-  sales: number;
-  revenue: number;
-  profit: number;
-}
+import { ProductPerformanceApi, ProductPerformance } from "@/lib/api/productperformance";
 
 export function ProductPerformanceTable() {
   const [sortConfig, setSortConfig] = useState<{ key: keyof ProductPerformance; direction: "ascending" | "descending" } | null>(null);

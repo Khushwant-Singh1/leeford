@@ -1,140 +1,155 @@
 "use client"
 
-import { useState } from "react"
-import { Edit, Trash2, ToggleLeft, ToggleRight } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Edit, Trash2, Loader2 } from "lucide-react"
+import { format } from "date-fns"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
+import { Discount, DiscountType } from "@prisma/client"
+import { DiscountModal } from "./discount-modal"
 
-const initialDiscounts = [
-  {
-    id: 1,
-    code: "SUMMER2023",
-    type: "Percentage",
-    value: 20,
-    minPurchase: 100,
-    usageLimit: 100,
-    usageCount: 50,
-    startDate: "2023-06-01",
-    endDate: "2023-08-31",
-    status: "Active",
-  },
-  {
-    id: 2,
-    code: "FREESHIP",
-    type: "Fixed Amount",
-    value: 10,
-    minPurchase: 50,
-    usageLimit: 200,
-    usageCount: 75,
-    startDate: "2023-06-15",
-    endDate: "2023-07-15",
-    status: "Active",
-  },
-  {
-    id: 3,
-    code: "WELCOME10",
-    type: "Percentage",
-    value: 10,
-    minPurchase: 0,
-    usageLimit: 1000,
-    usageCount: 500,
-    startDate: "2023-01-01",
-    endDate: "2023-12-31",
-    status: "Active",
-  },
-  {
-    id: 4,
-    code: "FLASH50",
-    type: "Percentage",
-    value: 50,
-    minPurchase: 200,
-    usageLimit: 50,
-    usageCount: 50,
-    startDate: "2023-05-01",
-    endDate: "2023-05-02",
-    status: "Expired",
-  },
-  {
-    id: 5,
-    code: "LOYALTY25",
-    type: "Percentage",
-    value: 25,
-    minPurchase: 150,
-    usageLimit: null,
-    usageCount: 1000,
-    startDate: "2023-06-01",
-    endDate: null,
-    status: "Active",
-  },
-]
+interface DiscountWithRelations extends Discount {
+  products: { productId: string }[]
+  categories: { categoryId: string }[]
+  _count?: { userUsages: number }
+}
 
 export function DiscountList() {
-  const [discounts, setDiscounts] = useState(initialDiscounts)
+  const [discounts, setDiscounts] = useState<DiscountWithRelations[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedDiscount, setSelectedDiscount] = useState<DiscountWithRelations | null>(null)
+  const { toast } = useToast()
 
-  const handleDelete = (id: number) => {
-    setDiscounts(discounts.filter((discount) => discount.id !== id))
+  const fetchDiscounts = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch('/api/discounts')
+      if (!res.ok) throw new Error('Failed to fetch discounts')
+      setDiscounts(await res.json())
+    } catch (error) {
+      console.error('Error:', error)
+      toast({ title: 'Error', description: 'Failed to load discounts', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const toggleStatus = (id: number) => {
-    setDiscounts(
-      discounts.map((discount) =>
-        discount.id === id ? { ...discount, status: discount.status === "Active" ? "Inactive" : "Active" } : discount,
-      ),
-    )
+  useEffect(() => { fetchDiscounts() }, [])
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this discount?')) return
+    try {
+      const res = await fetch(`/api/discounts/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete')
+      toast({ title: 'Success', description: 'Discount deleted' })
+      fetchDiscounts()
+    } catch (error) {
+      console.error('Error:', error)
+      toast({ title: 'Error', description: 'Failed to delete', variant: 'destructive' })
+    }
+  }
+
+  const toggleStatus = async (discount: DiscountWithRelations) => {
+    try {
+      const res = await fetch(`/api/discounts/${discount.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !discount.isActive }),
+      })
+      if (!res.ok) throw new Error('Failed to update')
+      toast({ title: 'Success', description: 'Status updated' })
+      fetchDiscounts()
+    } catch (error) {
+      console.error('Error:', error)
+      toast({ title: 'Error', description: 'Failed to update', variant: 'destructive' })
+    }
+  }
+
+  if (loading) {
+    return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
   }
 
   return (
-    <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Valid Period
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {discounts.map((discount) => (
-            <tr key={discount.id}>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{discount.code}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{discount.type}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {discount.type === "Percentage" ? `${discount.value}%` : `$${discount.value}`}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {discount.usageCount} / {discount.usageLimit || "∞"}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {discount.startDate} - {discount.endDate || "No End Date"}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <span
-                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    discount.status === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {discount.status}
-                </span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                <button className="text-indigo-600 hover:text-indigo-900 mr-2">
-                  <Edit size={18} />
-                </button>
-                <button onClick={() => handleDelete(discount.id)} className="text-red-600 hover:text-red-900 mr-2">
-                  <Trash2 size={18} />
-                </button>
-                <button onClick={() => toggleStatus(discount.id)} className="text-gray-600 hover:text-gray-900">
-                  {discount.status === "Active" ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => {
+          setSelectedDiscount(null)
+          setIsModalOpen(true)
+        }}>
+          Create Discount
+        </Button>
+      </div>
+
+      <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valid Until</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {discounts.map((discount) => (
+                <tr key={discount.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {discount.code}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {discount.discountType === DiscountType.PERCENTAGE ? 'Percentage' : 'Fixed Amount'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {discount.discountType === DiscountType.PERCENTAGE 
+                      ? `${discount.discountValue}%` 
+                      : `₹${discount.discountValue}`}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {format(new Date(discount.validTo), 'MMM d, yyyy')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        discount.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {discount.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                    <button 
+                      onClick={() => {
+                        setSelectedDiscount(discount)
+                        setIsModalOpen(true)
+                      }}
+                      className="text-indigo-600 hover:text-indigo-900"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(discount.id)} 
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <DiscountModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        discount={selectedDiscount}
+        onSuccess={fetchDiscounts}
+      />
     </div>
   )
 }

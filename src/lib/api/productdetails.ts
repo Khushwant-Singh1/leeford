@@ -18,6 +18,14 @@ interface GetProductsResponse {
   };
 }
 
+// Define the structure for the dashboard overview data
+interface DashboardOverview {
+    totalProducts: number;
+    revenue: number;
+    growth: string;
+    usersCount: number;
+}
+
 const API_BASE_URL = "/api";
 
 export const productApi = {
@@ -38,6 +46,17 @@ export const productApi = {
     const response = await fetch(`${API_BASE_URL}/products?${params.toString()}`);
     if (!response.ok) {
       throw new Error("Failed to fetch products");
+    }
+    return response.json();
+  },
+
+  /**
+   * Fetches dashboard overview metrics.
+   */
+  getDashBoardOverview: async (): Promise<DashboardOverview> => {
+    const response = await fetch(`${API_BASE_URL}/products/overview`);
+    if (!response.ok) {
+        throw new Error("Failed to fetch dashboard overview");
     }
     return response.json();
   },
