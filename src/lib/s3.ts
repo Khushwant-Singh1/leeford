@@ -18,7 +18,7 @@ export async function uploadImageToS3(file: Buffer, fileType: string) {
     Key: fileName,
     Body: file,
     ContentType: fileType,
-    ACL: "public-read", // So it's accessible
+     // So it's accessible
   });
 
   await s3.send(command);

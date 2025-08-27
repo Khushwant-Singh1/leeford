@@ -3,66 +3,28 @@
 import Link from "next/link";
 import { Edit, Trash2, Copy, Eye, EyeOff, Search } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Product } from "@/types/product-types";
 import Image from "next/image";
 import cuid from "cuid";
-import { productApi } from "@/lib/api/productdetails";
+import { productApi, Product } from "@/lib/api/productdetails";
 import { useState, useEffect } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
-
-interface Size {
-  id: string
-  size: string
-  stock: number
-  colorId: string
-}
-
-interface Asset {
-  id: string
-  asset_url: string
-  productId: string | null
-  type: string
-  colorId: string | null
-}
-
-interface Color {
-  id: string
-  color: string
-  productId: string
-  assets: Asset[]
-  sizes: Size[]
-}
-
-export interface Products extends Product {
-  stock: number;
-  category: string;
-  assets: {
-    type: "IMAGE" | "VIDEO";
-    asset_url: string;
-    url: string;
-  }[];
-  colors: Color[];
-  createdAt: string;
-}
 
 export function ProductsTable() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
-  // Debounce search term to avoid excessive API calls
+
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  // Reset to first page when search term changes
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearchTerm]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["products", currentPage, itemsPerPage, debouncedSearchTerm],
-    
-      queryFn: () => productApi.getProducts(currentPage, itemsPerPage, debouncedSearchTerm),
+    queryFn: () =>
+      productApi.getProducts(currentPage, itemsPerPage, debouncedSearchTerm),
   });
 
   const deleteMutation = useMutation({
@@ -73,20 +35,18 @@ export function ProductsTable() {
   });
 
   const copyMutation = useMutation({
-    mutationFn: async (product: Products) => {
-      const newProduct = {
-        ...product,
-        id: cuid(),
-        name: `${product.name} (Copy)`,
-        status: "DRAFT" as const,
-        discountPrice: 10,
-        assets:
-          product.assets?.map((asset) => ({
-            ...asset,
-            url: asset.asset_url || "",
-          })) || [],
-      };
-      await productApi.addProduct(newProduct);
+    mutationFn: async (product: Product) => {
+      // FIX: Create a FormData object to match the API client's expected type.
+      const formData = new FormData();
+      formData.append("title", `${product.title} (Copy)`);
+      formData.append("sku", `${product.sku}-COPY-${cuid().slice(0, 5)}`);
+      formData.append("price", String(product.price));
+      formData.append("stockQuantity", "0"); // Copies start with 0 stock
+      formData.append("status", "DRAFT");
+      // Append other necessary fields from your product model here
+      formData.append("description", product.description || "Copied product description.");
+      
+      await productApi.addProduct(formData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -94,16 +54,20 @@ export function ProductsTable() {
   });
 
   const toggleStatusMutation = useMutation({
-    mutationFn: ({ id, newStatus }: { id: string; newStatus: string }) =>
-      productApi.updateStatus(id, newStatus),
+    mutationFn: ({
+      id,
+      newStatus,
+    }: {
+      id: string;
+      newStatus: "PUBLISHED" | "DRAFT" | "ARCHIVED";
+    }) => productApi.updateStatus(id, newStatus),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 
-  
   const products = data?.products || [];
-const { totalPages } = data?.pagination || { totalPages: 1 };
+  const { totalPages } = data?.pagination || { totalPages: 1 };
 
   return (
     <div className="space-y-4">
@@ -122,7 +86,9 @@ const { totalPages } = data?.pagination || { totalPages: 1 };
       {!isLoading && !products.length && (
         <div className="p-4">No products found</div>
       )}
-      { error && <div className="text-red-500 p-4">Error loading products</div>}
+      {error && (
+        <div className="text-red-500 p-4">Error loading products</div>
+      )}
       <div className="bg-white shadow-sm rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -145,22 +111,22 @@ const { totalPages } = data?.pagination || { totalPages: 1 };
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {products.map((product: Products) => (
+            {products.map((product: Product) => (
               <tr key={product.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="relative w-20 h-20">
                     <Image
-                      src={product.assets?.[0]?.asset_url || "/placeholder.png"}
-                      alt={product.name}
+                      src={product.images?.[0]?.url || "/placeholder.png"}
+                      alt={product.title || "Product image"}
                       fill
                       className="object-cover rounded"
                       sizes="80px"
                     />
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">{product.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{product.title}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                ₹{product.price.toFixed(2)}
+                  ₹{product.price.toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
@@ -168,7 +134,8 @@ const { totalPages } = data?.pagination || { totalPages: 1 };
                       product.status === "PUBLISHED"
                         ? "bg-green-100 text-green-800"
                         : "bg-yellow-100 text-yellow-800"
-                    }`}>
+                    }`}
+                  >
                     {product.status}
                   </span>
                 </td>
@@ -176,30 +143,38 @@ const { totalPages } = data?.pagination || { totalPages: 1 };
                   <div className="flex space-x-2">
                     <Link
                       href={`/admin/products/edit/${product.id}`}
-                      className="text-indigo-600 hover:text-indigo-900 transition-colors">
+                      className="text-indigo-600 hover:text-indigo-900 transition-colors"
+                    >
                       <Edit size={18} />
                     </Link>
                     <button
-                      onClick={() => deleteMutation.mutate(product.id)}
-                      className="text-red-600 hover:text-red-900 transition-colors">
+                      onClick={() =>
+                        product.id && deleteMutation.mutate(product.id)
+                      }
+                      className="text-red-600 hover:text-red-900 transition-colors"
+                      disabled={!product.id}
+                    >
                       <Trash2 size={18} />
                     </button>
                     <button
                       onClick={() => copyMutation.mutate(product)}
-                      className="text-blue-600 hover:text-blue-900 transition-colors">
+                      className="text-blue-600 hover:text-blue-900 transition-colors"
+                    >
                       <Copy size={18} />
                     </button>
                     <button
-                      onClick={() =>
+                      onClick={() => {
+                        if (!product.id) return;
+                        const newStatus =
+                          product.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
                         toggleStatusMutation.mutate({
                           id: product.id,
-                          newStatus:
-                            product.status === "PUBLISHED"
-                              ? "DRAFT"
-                              : "PUBLISHED",
-                        })
-                      }
-                      className="text-gray-600 hover:text-gray-900 transition-colors">
+                          newStatus,
+                        });
+                      }}
+                      className="text-gray-600 hover:text-gray-900 transition-colors"
+                      disabled={!product.id}
+                    >
                       {product.status === "PUBLISHED" ? (
                         <Eye size={18} />
                       ) : (
@@ -222,25 +197,38 @@ const { totalPages } = data?.pagination || { totalPages: 1 };
               setItemsPerPage(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="px-4 bg-white py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-gray-700">
+            className="px-4 bg-white py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-gray-700"
+          >
             <option value="5">5 per page</option>
             <option value="10">10 per page</option>
             <option value="25">25 per page</option>
             <option value="50">50 per page</option>
           </select>
         </div>
-        
+
         <div className="flex justify-center space-x-3">
           <button
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200 flex items-center space-x-1">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200 flex items-center space-x-1"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
             <span>Previous</span>
           </button>
-          
+
           <div className="flex items-center space-x-2">
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let pageNum;
@@ -253,7 +241,7 @@ const { totalPages } = data?.pagination || { totalPages: 1 };
               } else {
                 pageNum = currentPage - 2 + i;
               }
-              
+
               return (
                 <button
                   key={pageNum}
@@ -262,20 +250,35 @@ const { totalPages } = data?.pagination || { totalPages: 1 };
                     currentPage === pageNum
                       ? "bg-indigo-600 text-white font-medium shadow-md"
                       : "border border-gray-300 hover:bg-gray-50 text-gray-700"
-                  }`}>
+                  }`}
+                >
                   {pageNum}
                 </button>
               );
             })}
           </div>
-          
+
           <button
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            onClick={() =>
+              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+            }
             disabled={currentPage === totalPages}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200 flex items-center space-x-1">
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200 flex items-center space-x-1"
+          >
             <span>Next</span>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </button>
         </div>

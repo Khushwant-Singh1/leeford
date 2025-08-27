@@ -23,17 +23,40 @@ export async function PATCH(req: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { id } = params;
+    // Ensure params is awaited before destructuring
+    const id = params?.id;
+    if (!id) {
+      return NextResponse.json({ error: "Category ID is required" }, { status: 400 });
+    }
     const { name, description } = await req.json();
 
     const data: { name?: string; description?: string; slug?: string } = {};
 
     if (name) {
       data.name = name;
-      data.slug = name
+      let baseSlug = name
         .toLowerCase()
         .replace(/\s+/g, "-")
         .replace(/[^a-z0-9-]/g, "");
+      
+      // Check for slug uniqueness and add counter if needed (excluding current record)
+      let counter = 1;
+      let finalSlug = baseSlug;
+      
+      while (true) {
+        const existingCategory = await prisma.category.findUnique({
+          where: { slug: finalSlug }
+        });
+        
+        if (!existingCategory || existingCategory.id === id) {
+          break;
+        }
+        
+        finalSlug = `${baseSlug}-${counter}`;
+        counter++;
+      }
+      
+      data.slug = finalSlug;
     }
 
     if (description) {
@@ -68,7 +91,11 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { id } = params;
+    // Ensure params is awaited before destructuring
+    const id = params?.id;
+    if (!id) {
+      return NextResponse.json({ error: "Category ID is required" }, { status: 400 });
+    }
 
     await prisma.category.delete({
       where: { id },

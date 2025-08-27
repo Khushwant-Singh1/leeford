@@ -1,184 +1,115 @@
-import { Products } from "@/components/admin/products-table";
-import { Product } from "@/types/product-types";
+// src/lib/api/productdetails.ts
+import { Product as PrismaProduct, ProductImage } from "@prisma/client";
 
-// Mock products data
-const mockProducts: Products[] = [
-  {
-    id: "1",
-    title: "Premium T-Shirt",
-    sku: "TSHIRT-001",
-    price: 29.99,
-    stockQuantity: 150,
-    status: "PUBLISHED",
-    createdAt: new Date("2024-01-15").toISOString(),
-  },
-  {
-    id: "2",
-    title: "Cotton Hoodie",
-    sku: "HOODIE-002",
-    price: 59.99,
-    stockQuantity: 75,
-    status: "PUBLISHED",
-    createdAt: new Date("2024-02-10").toISOString(),
-  },
-  {
-    id: "3",
-    title: "Denim Jeans",
-    sku: "JEANS-003",
-    price: 89.99,
-    stockQuantity: 30,
-    status: "DRAFT",
-    createdAt: new Date("2024-03-05").toISOString(),
-  },
-];
+// Define a consistent Product type for the frontend, including relations
+export interface Product extends PrismaProduct {
+  images?: ProductImage[];
+}
+
+// Define the expected structure of the API response for getProducts
+interface GetProductsResponse {
+  success: boolean;
+  products: Product[];
+  pagination: {
+    totalPages: number;
+    currentPage: number;
+    totalItems: number;
+    itemsPerPage: number;
+  };
+}
+
+const API_BASE_URL = "/api";
 
 export const productApi = {
-  getAll: async (): Promise<Products[]> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 400));
-    return mockProducts;
-  },
-  
+  /**
+   * Fetches a paginated and searchable list of products from the backend.
+   */
   getProducts: async (
     currentPage: number,
     itemsPerPage: number,
-    debouncedSearchTerm: string,
-    status?: string
-  ): Promise<{
-    success: boolean,
-    products: Products[];
-    pagination: {
-      totalPages: number;
-      currentPage: number;
-      totalItems: number;
-      itemsPerPage: number;
-    };
-  }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Filter products based on search term and status
-    let filteredProducts = mockProducts;
-    
-    if (debouncedSearchTerm) {
-      filteredProducts = filteredProducts.filter(product =>
-        product.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.sku.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-      );
+    debouncedSearchTerm: string
+  ): Promise<GetProductsResponse> => {
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      limit: String(itemsPerPage),
+      search: debouncedSearchTerm,
+    });
+
+    const response = await fetch(`${API_BASE_URL}/products?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch products");
     }
-    
-    if (status) {
-      filteredProducts = filteredProducts.filter(product => product.status === status);
-    }
-    
-    // Paginate results
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-    
-    return {
-      success: true,
-      products: paginatedProducts,
-      pagination: {
-        totalPages: Math.ceil(filteredProducts.length / itemsPerPage),
-        currentPage,
-        totalItems: filteredProducts.length,
-        itemsPerPage,
-      }
-    };
+    return response.json();
   },
-  
-  getById: async (id: string): Promise<Products> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 200));
-    
-    const product = mockProducts.find(p => p.id === id);
-    if (!product) {
+
+  /**
+   * Fetches a single product by its ID.
+   */
+  getById: async (id: string): Promise<Product> => {
+    const response = await fetch(`${API_BASE_URL}/products/${id}`);
+    if (!response.ok) {
       throw new Error(`Product with id ${id} not found`);
     }
-    return product;
+    return response.json();
   },
-  
-  addProduct: async (product: Product): Promise<Products> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const newProduct: Products = {
-      id: String(mockProducts.length + 1),
-      title: product.title,
-      sku: product.sku,
-      price: product.price,
-      stockQuantity: product.stockQuantity || 0,
-      status: "DRAFT",
-      createdAt: new Date().toISOString(),
-    };
-    
-    mockProducts.push(newProduct);
-    return newProduct;
-  },
-  
-  updateProduct: async (id: string, product: Product): Promise<Products> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 400));
-    
-    const index = mockProducts.findIndex(p => p.id === id);
-    if (index === -1) {
-      throw new Error(`Product with id ${id} not found`);
+
+  /**
+   * Adds a new product using FormData.
+   */
+  addProduct: async (productData: FormData): Promise<Product> => {
+    const response = await fetch(`${API_BASE_URL}/products`, {
+      method: "POST",
+      body: productData,
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to add product");
     }
-    
-    const updatedProduct: Products = {
-      ...mockProducts[index],
-      title: product.title,
-      sku: product.sku,
-      price: product.price,
-      stockQuantity: product.stockQuantity || mockProducts[index].stockQuantity,
-    };
-    
-    mockProducts[index] = updatedProduct;
-    return updatedProduct;
+    return response.json();
   },
-  
+
+  /**
+   * Updates an existing product using FormData.
+   */
+  updateProduct: async (id: string, productData: FormData): Promise<Product> => {
+    const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+      method: "PUT",
+      body: productData,
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to update product");
+    }
+    return response.json();
+  },
+
+  /**
+   * Deletes a product by its ID.
+   */
   deleteProduct: async (id: string): Promise<void> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    const index = mockProducts.findIndex(p => p.id === id);
-    if (index !== -1) {
-      mockProducts.splice(index, 1);
+    const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      throw new Error("Failed to delete product");
     }
   },
-  
-  updateStatus: async (id: string, status: string): Promise<Products> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 200));
-    
-    const index = mockProducts.findIndex(p => p.id === id);
-    if (index === -1) {
-      throw new Error(`Product with id ${id} not found`);
+
+  /**
+   * Updates the status of a product.
+   */
+  updateStatus: async (
+    id: string,
+    status: "PUBLISHED" | "DRAFT" | "ARCHIVED"
+  ): Promise<Product> => {
+    const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to update product status");
     }
-    
-    mockProducts[index] = {
-      ...mockProducts[index],
-      status: status as any
-    };
-    
-    return mockProducts[index];
+    return response.json();
   },
-  
-  getDashBoardOverview: async (): Promise<{
-    totalProducts: number;
-    revenue: number,
-    growth: string,
-    usersCount: number
-  }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    return {
-      totalProducts: mockProducts.length,
-      revenue: 25000,
-      growth: "+12.5%",
-      usersCount: 1250
-    };
-  }
 };

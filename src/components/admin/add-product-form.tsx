@@ -1,696 +1,94 @@
-"use client";
-
-import { useState } from "react";
-import { Upload, X, Check, Plus, Trash2, ChevronRight } from "lucide-react";
-import Image from "next/image";
-import UploadPopup from "../UploadPopup";
-import { Category } from "@/types/product-types";
-import { Product as PrismaProduct, ProductStatus } from '@prisma/client';
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { categoryApi } from "@/lib/api/categories";
-import cuid from "cuid";
-import { varientApi } from "@/lib/api/varients";
-import { productsApi } from "@/lib/api/products";
-import { AddProductPayload } from "@/lib/api/products";
-
-export function AddProductForm() {
-  const [isUploadPopupOpen, setIsUploadPopupOpen] = useState(false);
-  const [varientId, setVarientId] = useState<string>("");
-  const [varientImgPopUp, setVarientImgPopUp] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
-  const [derror, setderror] = useState<string>("");
-
+"use client";import { useState } from "react";import { Upload, X, Check } from "lucide-react";import Image from "next/image";import UploadPopup from "../UploadPopup";import { ProductStatus } from '@prisma/client';import { useMutation, useQuery } from "@tanstack/react-query";import { useRouter } from "next/navigation";import { categoryApi } from "@/lib/api/categories";import { Category } from "@/types/product-types";import { productsApi } from "@/lib/api/products";import { AddProductPayload } from "@/lib/api/products";import { productSchema } from "@/lib/validations/product-schema";export function AddProductForm() {  const [isUploadPopupOpen, setIsUploadPopupOpen] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const router = useRouter();
-
-  const Sizes = [
-    "SIZE_5",
-    "SIZE_6",
-    "SIZE_7",
-    "SIZE_8",
-    "SIZE_9",
-    "SIZE_10",
-    "SIZE_11",
-    "SIZE_12",
-  ];
-
-  interface Variant {
-    isOpen: boolean;
-    id: string;
-    color: string;
-    customColor: boolean;
-    images: {
-      url: string;
-      type: "IMAGE" | "VIDEO";
-    }[];
-    sizes: {
-      id: string;
-      name: string;
-      quantity: number;
-    }[];
-  }
-  const [variants, setVariants] = useState<Variant[]>([]);
-  const [errors, setErrors] = useState({
-    title: "",
-    description: "",
-    price: "",
-    category: "",
-    sku: "",
-    stockQuantity: "",
-  });
-
-    const [images, setImages] = useState<File[]>([]);
-
-  const [product, setProduct] = useState<Omit<AddProductPayload, 'images'>>({
-    title: "",
-    description: "",
-    shortDescription: "",
-    price: 0,
-    comparePrice: 0,
-    sku: "",
-    categoryId: "",
-    stockQuantity: 0,
-    lowStockThreshold: 10,
-    isBestseller: false,
-    status: ProductStatus.DRAFT,
-    isNewProduct: true,
-    status: "DRAFT",
-    seoTitle: "",
-    seoDescription: "",
-    seoKeywords: "",
-  });
-
-  const validateProduct = () => {
-    const newErrors = {
-      title: "",
-      description: "",
-      price: "",
-      category: "",
-      sku: "",
-      stockQuantity: "",
-    };
-    if (!product.title?.trim()) {
-      newErrors.title = "Product title is required";
-    }
-
-    if (!product.description?.trim()) {
-      newErrors.description = "Product description is required";
-    }
-
-    if (!product.price || product.price <= 0) {
-      newErrors.price = "Price must be greater than 0";
-    }
-
-    if (!product.categoryId?.trim()) {
-      newErrors.category = "Please select a category";
-      valid = false;
-    }
-
-    if (!product.sku?.trim()) {
-      newErrors.sku = "SKU is required";
-      valid = false;
-    }
-
-    if (product.stockQuantity === null || product.stockQuantity < 0) {
-      newErrors.stockQuantity = "Stock quantity must be a non-negative number";
-      valid = false;
-    }
-
-    if (images.length === 0) {
-      newErrors.images = "At least one image is required";
-      valid = false;
-    }
-
-    if (variants.length > 0) {
-      const hasInvalidVariant = variants.some(
-        (variant) =>
-          !variant.color ||
-          variant.images.length === 0 ||
-          variant.sizes.length === 0
-      );
-      if (hasInvalidVariant) {
-        newErrors.variants = "All variants must have color, images and sizes";
+  const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
+  const [images, setImages] = useState<File[]>([]);  const [product, setProduct] = useState<Omit<AddProductPayload, 'images'> & { subcategoryId: string }>({    title: "",    description: "",    shortDescription: "",    price: 0,    comparePrice: 0,    sku: "",    categoryId: "",    subcategoryId: "",    stockQuantity: 0,    lowStockThreshold: 10,    isBestseller: false,    isNewProduct: true,    status: ProductStatus.DRAFT,    seoTitle: "",    seoDescription: "",  });  const handleAddImage = async (file: File) => {
+    try {
+      setIsUploading(true);
+      setUploadError(null);
+      
+      // Validate file size (e.g., 5MB limit)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        throw new Error('File size should be less than 5MB');
       }
+      
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        throw new Error('Only JPG, PNG, and WebP images are allowed');
+      }
+      
+      setImages(prev => [...prev, file]);
+      setIsUploadPopupOpen(false);
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadError(error instanceof Error ? error.message : 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
     }
-
-    setErrors(newErrors);
-    return Object.values(newErrors).every((error) => !error);
-  };
-
-  const addVariant = () => {
-    setVariants([
-      ...variants,
-      {
-        id: cuid(),
-        color: "",
-        customColor: false,
-        images: [],
-        sizes: [
-          {
-            id: cuid(),
-            name: "SIZE_5",
-            quantity: 0,
-          },
-        ],
-        isOpen: true,
-      },
-    ]);
-  };
-
-  const addSize = (variantId: string) => {
-    setVariants(
-      variants.map((variant) => {
-        if (variant.id === variantId) {
-          return {
-            ...variant,
-            sizes: [...variant.sizes, { id: cuid(), name: "", quantity: 0 }],
-          };
-        }
-        return variant;
-      })
-    );
-  };
-
-  const removeVariant = (variantId: string) => {
-    setVariants(variants.filter((v) => v.id !== variantId));
-  };
-
-  const removeSize = (variantId: string, sizeId: string) => {
-    setVariants(
-      variants.map((variant) => {
-        if (variant.id === variantId) {
-          return {
-            ...variant,
-            sizes: variant.sizes.filter((size) => size.id !== sizeId),
-          };
-        }
-        return variant;
-      })
-    );
-  };
-
-  const handleAddVarientImage = (imageUrl: string) => {
-    // In a real app, this would open a file picker
-    setVariants(
-      variants.map((variant) => {
-        if (variant.id === varientId) {
-          return {
-            ...variant,
-            images: [...variant.images, { url: imageUrl, type: "IMAGE" }],
-          };
-        }
-        return variant;
-      })
-    );
-    setVarientImgPopUp(false);
-  };
-
-  const handleRemoveVariantImage = (variantId: string, imageIndex: number) => {
-    setVariants(
-      variants.map((variant) => {
-        if (variant.id === variantId) {
-          const newImages = [...variant.images];
-          newImages.splice(imageIndex, 1);
-          return {
-            ...variant,
-            images: newImages,
-          };
-        }
-        return variant;
-      })
-    );
-  };
-
-  const categoryQuery = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => categoryApi.getAll(),
-  });
-
-    const handleAddImage = (file: File) => {
-    setImages(prev => [...prev, file]);
-    setIsUploadPopupOpen(false);
-  };
-
-    const handleRemoveImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-  };
-  const variantMutation = useMutation({
-    mutationFn: (variant: {
-      productId: string;
-      color: string;
-      assets: {
-        url: string;
-        type: "IMAGE" | "VIDEO";
-      }[];
-      sizes: {
-        size:
-          | "SIZE_5"
-          | "SIZE_6"
-          | "SIZE_7"
-          | "SIZE_8"
-          | "SIZE_9"
-          | "SIZE_10"
-          | "SIZE_11"
-          | "SIZE_12";
-        stock: number;
-      }[];
-    }) => varientApi.addVarient(variant),
-  });
-
-    const productMutation = useMutation({
-    mutationFn: (payload: AddProductPayload) => productsApi.addProduct(payload),
-    onSuccess: () => {
-      router.push(`/admin/products`);
-    },
-    onError: (error: any) => {
-      // Assuming the error message from the API is helpful
-      setErrors(prev => ({ ...prev, sku: error.message || 'An unexpected error occurred' }))
-    }
-  });
-
-  const saveProduct = async () => {
-    if (!validateProduct()) return;
-
-    const payload: AddProductPayload = {
-      ...product,
-      price: product.price || 0,
-      stockQuantity: product.stockQuantity || 0,
-      isBestseller: product.isBestseller || false,
-      isNewProduct: product.isNewProduct || false,
-      images: images,
-      // variants: variants, // Add variants logic here if needed
-    };
-
-    productMutation.mutate(payload);
-  };
-  return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-6">
-        {/* ... existing product info ... */}
-      </div>
-      <div className="space-y-6">
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">Status</h2>
-          <select
-            name="status"
-            value={product.status}
-            onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md"
-          >
-            <option value={ProductStatus.DRAFT}>Draft</option>
-            <option value={ProductStatus.PUBLISHED}>Published</option>
-            <option value={ProductStatus.ARCHIVED}>Archived</option>
-          </select>
-        </div>
-        {/* ... existing category and other sections ... */}
-      </div>
-    </div>
-      <div className="lg:col-span-2 space-y-6">
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">
-            Product Information
-          </h2>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Product Title
-              </label>
-              <input
-                type="text"
-                value={product.title || ''}
-                onChange={(e) =>
-                  setProduct({ ...product, title: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"
-                placeholder="Enter product title"
-              />
-              {errors.title && (
-                <p className="text-red-500 text-xs">{errors.title}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Long Description
-              </label>
-              <textarea
-                rows={6}
-                value={product.description || ''}
-                onChange={(e) =>
-                  setProduct({ ...product, description: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"
-                placeholder="Enter detailed product description"
-              />
-              {errors.description && (
-                <p className="text-red-500 text-xs">{errors.description}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Short Description
-              </label>
-              <textarea
-                rows={3}
-                value={product.shortDescription || ''}
-                onChange={(e) =>
-                  setProduct({ ...product, shortDescription: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"
-                placeholder="Enter a brief summary"
-              />
-            </div>
-
-          </div>
-        </div>
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">Media</h2>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {images.map((image, index) => (
-              <div key={index} className="relative group">
-                <Image
-                  src={URL.createObjectURL(image)}
-                  alt={`Product image ${index + 1}`}
-                  width={200}
-                  height={200}
-                  className="w-full h-32 object-contain rounded-md border border-gray-200"
-                />
-                <button
-                  onClick={() => handleRemoveImage(index)}
-                  className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-
-            <button
-              onClick={() => setIsUploadPopupOpen(true)}
-              className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex flex-col items-center justify-center text-gray-500 hover:text-[#4f507f] hover:border-[#4f507f] transition-colors">
-              <Upload size={24} />
-              <span className="mt-2 text-sm">Add Image</span>
-            </button>
-          </div>
-          {errors.images && (
-            <p className="text-red-500 text-xs">{errors.images}</p>
-          )}
-        </div>
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">Pricing</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Base Price
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                  Rs
-                </span>
-                <input
-                  type="text"
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!/^\d*\.?\d*$/.test(value)) {
-                      setError("Please enter a valid number");
-                      return;
-                    }
-                    setError("");
-                    setProduct({
-                      ...product,
-                      price: value ? parseFloat(value) : 0,
-                    });
-                  }}
-                  className={`w-full pl-8 pr-3 py-2 bg-white border ${
-                    error ? "border-red-500" : "border-gray-300"
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]`}
-                  placeholder="0.00"
-                />
-              </div>
-              {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-              {errors.price && (
-                <p className="mt-1 text-sm text-red-500">{errors.price}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Discounted Price
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                  Rs
-                </span>
-                <input
-                  type="text"
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!/^\d*\.?\d*$/.test(value)) {
-                      setderror("Please enter a valid number");
-                      return;
-                    }
-                    setderror("");
-                    setProduct({
-                      ...product,
-                      comparePrice: value ? parseFloat(value) : 0,
-                    });
-                  }}
-                  className={`w-full pl-8 pr-3 py-2 bg-white border ${
-                    derror ? "border-red-500" : "border-gray-300"
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]`}
-                  placeholder="0.00"
-                />
-              </div>
-              {derror && <p className="mt-1 text-sm text-red-500">{derror}</p>}
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">Inventory</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                SKU (Stock Keeping Unit)
-              </label>
-              <input
-                type="text"
-                value={product.sku || ''}
-                onChange={(e) => setProduct({ ...product, sku: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"
-                placeholder="Enter SKU"
-              />
-              {errors.sku && (
-                <p className="text-red-500 text-xs">{errors.sku}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Stock Quantity
-              </label>
-              <input
-                type="number"
-                value={product.stockQuantity || 0}
-                onChange={(e) => setProduct({ ...product, stockQuantity: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"
-                placeholder="0"
-              />
-              {errors.stockQuantity && (
-                <p className="text-red-500 text-xs">{errors.stockQuantity}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Low Stock Threshold
-              </label>
-              <input
-                type="number"
-                value={product.lowStockThreshold || 0}
-                onChange={(e) => setProduct({ ...product, lowStockThreshold: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"
-                placeholder="10"
-              />
-            </div>
-          </div>
-        </div>{" "}
-      </div>{" "}
-      <div className="space-y-6">
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">
-            Organization
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Categories
-              </label>
-              <div className="space-y-2">
-                {categoryQuery.isLoading ? (
-                  <div className="flex items-center flex-1 justify-start">
-                    {" "}
-                    Loading...
-                  </div>
-                ) : (
-                  categoryQuery.data?.map((category: Category) => (
-                    <div
-                      key={category.id}
-                      onClick={() =>
-                        setProduct({ ...product, categoryId: category.id })
-                      }
-                      className={`flex items-center gap-2 p-2 rounded-md cursor-pointer ${
-                        product.categoryId === category.id
-                          ? "bg-[#edeefc] text-[#4f507f]"
-                          : "hover:bg-gray-100"
-                      }`}>
-                      <div
-                        className={`w-5 h-5 rounded-md flex items-center justify-center ${
-                          product.categoryId === category.id
-                            ? "bg-[#4f507f] text-white"
-                            : "border border-gray-300"
-                        }`}>
-                        {product.categoryId === category.id && (
-                          <Check size={14} />
-                        )}
-                      </div>
-                      <span>{category.name}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-              {errors.category && (
-                <p className="text-red-500 text-xs">{errors.category}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Flags
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="is-bestseller"
-                  checked={product.isBestseller || false}
-                  onChange={(e) => setProduct({ ...product, isBestseller: e.target.checked })}
-                  className="w-4 h-4 text-[#4f507f] bg-white rounded focus:ring-[#4f507f]"
-                />
-                <label htmlFor="is-bestseller" className="text-sm text-gray-700">
-                  Bestseller
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="is-new-product"
-                  checked={product.isNewProduct || false}
-                  onChange={(e) => setProduct({ ...product, isNewProduct: e.target.checked })}
-                  className="w-4 h-4 text-[#4f507f] bg-white rounded focus:ring-[#4f507f]"
-                />
-                <label htmlFor="is-new-product" className="text-sm text-gray-700">
-                  New Product
-                </label>
-              </div>
-            </div>
-          </div>{" "}
-        </div>
-
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">SEO</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                SEO Title
-              </label>
-              <input
-                type="text"
-                value={product.seoTitle || ''}
-                onChange={(e) => setProduct({ ...product, seoTitle: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"
-                placeholder="Enter SEO title"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                SEO Description
-              </label>
-              <textarea
-                rows={3}
-                value={product.seoDescription || ''}
-                onChange={(e) => setProduct({ ...product, seoDescription: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"
-                placeholder="Enter SEO description"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                SEO Keywords
-              </label>
-              <input
-                type="text"
-                value={product.seoKeywords || ''}
-                onChange={(e) => setProduct({ ...product, seoKeywords: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"
-                placeholder="e.g., keyword1, keyword2"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-8 shadow-lg border border-gray-100">
-          <h2 className="text-xl font-semibold mb-6 text-[#4f507f] flex items-center">
-            <span className="inline-block w-2 h-2 bg-[#4f507f] rounded-full mr-2"></span>
-            Status
-          </h2>
-
-          <div>
-            <div className="flex space-x-4">
+  };  const handleRemoveImage = (index: number) => {    setImages(prev => prev.filter((_, i) => i !== index));  };  const productMutation = useMutation({    mutationFn: (payload: AddProductPayload) => productsApi.addProduct(payload),    onSuccess: () => {      router.push(`/admin/products`);    },    onError: (error: any) => {      setErrors((prev: any) => ({ ...prev, sku: error.message || 'An unexpected error occurred' }))    }  });  const { data: categories = [], isLoading: isLoadingCategories } = useQuery({    queryKey: ["categories"],    queryFn: () => categoryApi.getAll(),  });  const saveProduct = async () => {    const validationResult = productSchema.safeParse(product);    const fieldErrors: Record<string, string[] | undefined> = {};    if (!validationResult.success) {      Object.assign(fieldErrors, validationResult.error.flatten().fieldErrors);    }    if (images.length === 0) {      fieldErrors.images = ["At least one image is required"];    }    if (Object.keys(fieldErrors).length > 0) {      setErrors(fieldErrors);      return;    }    setErrors({});    const payload: AddProductPayload = {      title: product.title || '',      description: product.description || '',      price: product.price || 0,      sku: product.sku || '',      stockQuantity: product.stockQuantity || 0,      status: product.status || 'DRAFT',      images: images,      isBestseller: product.isBestseller || false,      isNewProduct: product.isNewProduct || false,      shortDescription: product.shortDescription,      comparePrice: product.comparePrice,      lowStockThreshold: product.lowStockThreshold,      categoryId: product.subcategoryId || product.categoryId,      seoTitle: product.seoTitle,      seoDescription: product.seoDescription    };    productMutation.mutate(payload);  };  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {    const { name, value, type } = e.target;    if (type === 'checkbox') {      const { checked } = e.target as HTMLInputElement;      setProduct(prev => ({ ...prev, [name]: checked }));    } else if (['price', 'comparePrice', 'stockQuantity', 'lowStockThreshold', 'weight', 'rating'].includes(name)) {      setProduct(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));    } else {      setProduct(prev => ({ ...prev, [name]: value }));    }  };  return (    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">      <div className="lg:col-span-2 space-y-6">        <div className="bg-white rounded-lg p-6 shadow-sm">          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">            Product Information          </h2>          <div className="space-y-4">            <div>              <label className="block text-sm font-medium text-gray-700 mb-1">                Product Title              </label>              <input                type="text"                name="title"                value={product.title || ''}                onChange={handleChange}                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                placeholder="Enter product title"              />              {errors.title && (                <p className="text-red-500 text-xs">{errors.title[0]}</p>              )}            </div>            <div>              <label className="block text-sm font-medium text-gray-700 mb-1">                Long Description              </label>              <textarea                rows={6}                name="description"                value={product.description || ''}                onChange={handleChange}                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                placeholder="Enter detailed product description"              />              {errors.description && (                <p className="text-red-500 text-xs">{errors.description[0]}</p>              )}            </div>                        <div>              <label className="block text-sm font-medium text-gray-700 mb-1">                Short Description              </label>              <textarea                rows={3}                name="shortDescription"                value={product.shortDescription || ''}                onChange={handleChange}                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                placeholder="Enter short description for product preview"              />            </div>            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">              <div>                <label className="block text-sm font-medium text-gray-700 mb-1">                  Price                </label>                <input                  type="number"                  name="price"                  value={product.price || ''}                  onChange={handleChange}                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                  placeholder="0.00"                  step="0.01"                />                {errors.price && (                  <p className="text-red-500 text-xs">{errors.price[0]}</p>                )}              </div>              <div>                <label className="block text-sm font-medium text-gray-700 mb-1">                  Compare At Price                </label>                <input                  type="number"                  name="comparePrice"                  value={product.comparePrice || ''}                  onChange={handleChange}                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                  placeholder="0.00"                  step="0.01"                />              </div>            </div>            <div>              <label className="block text-sm font-medium text-gray-700 mb-1">                SKU              </label>              <input                type="text"                name="sku"                value={product.sku || ''}                onChange={handleChange}                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                placeholder="Enter product SKU"              />              {errors.sku && (                <p className="text-red-500 text-xs">{errors.sku[0]}</p>              )}            </div>            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">              <div>                <label className="block text-sm font-medium text-gray-700 mb-1">                  Stock Quantity                </label>                <input                  type="number"                  name="stockQuantity"                  value={product.stockQuantity || 0}                  onChange={handleChange}                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                  placeholder="0"                />                {errors.stockQuantity && (                  <p className="text-red-500 text-xs">{errors.stockQuantity[0]}</p>                )}              </div>              <div>                <label className="block text-sm font-medium text-gray-700 mb-1">                  Low Stock Threshold                </label>                <input                  type="number"                  name="lowStockThreshold"                  value={product.lowStockThreshold || 0}                  onChange={handleChange}                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                  placeholder="10"                />              </div>            </div>          </div>        </div>        <div className="bg-white rounded-lg p-6 shadow-sm">          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">SEO Settings</h2>          <div className="space-y-4">            <div>              <label className="block text-sm font-medium text-gray-700 mb-1">                SEO Title              </label>              <input                type="text"                name="seoTitle"                value={product.seoTitle || ''}                onChange={handleChange}                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                placeholder="SEO optimized title"              />            </div>            <div>              <label className="block text-sm font-medium text-gray-700 mb-1">                SEO Description              </label>              <textarea                rows={3}                name="seoDescription"                value={product.seoDescription || ''}                onChange={handleChange}                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4f507f]"                placeholder="SEO meta description"              />            </div>          </div>        </div>      </div>      <div className="space-y-6">        <div className="bg-white rounded-lg p-6 shadow-sm">          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">Status</h2>          <select            name="status"            value={product.status}            onChange={handleChange}            className="w-full p-2 border border-gray-300 rounded-md"          >            <option value={ProductStatus.DRAFT}>Draft</option>            <option value={ProductStatus.PUBLISHED}>Published</option>            <option value={ProductStatus.ARCHIVED}>Archived</option>          </select>        </div>        <div className="bg-white rounded-lg p-6 shadow-sm">          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">Categories</h2>          <div className="space-y-2">            {isLoadingCategories ? (              <div>Loading categories...</div>            ) : (              <div className="space-y-2">                {categories.filter((cat: Category) => !cat.parentId).map((category: Category) => {                  const subcategories = categories.filter(                    (subcat: Category) => subcat.parentId === category.id                  );                                    return (                    <div key={category.id} className="space-y-1">                      {/* Parent category */}                      <div                        onClick={() =>                          setProduct({                            ...product,                            categoryId: category.id,                            subcategoryId: ''                          })                        }                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer ${                          product.categoryId === category.id && !product.subcategoryId                            ? "bg-[#edeefc] text-[#4f507f]"                            : "hover:bg-gray-100"                        }`}                      >                        <div                          className={`w-5 h-5 rounded-md flex items-center justify-center ${                            product.categoryId === category.id && !product.subcategoryId                              ? "bg-[#4f507f] text-white"                              : "border border-gray-300"                          }`}                        >                          {product.categoryId === category.id && !product.subcategoryId && (                            <Check size={14} />                          )}                        </div>                        <span className="font-medium">{category.name}</span>                      </div>                                            {/* Subcategories */}                      {subcategories.length > 0 && (                        <div className="pl-6 space-y-1">                          {subcategories.map((subcategory: Category) => (                            <div                              key={subcategory.id}                              onClick={(e) => {                                e.stopPropagation();                                setProduct({                                   ...product,                                   categoryId: category.id,                                  subcategoryId: subcategory.id                                });                              }}                              className={`flex items-center gap-2 p-2 rounded-md cursor-pointer ${                                product.subcategoryId === subcategory.id                                  ? "bg-[#edeefc] text-[#4f507f]"                                  : "hover:bg-gray-100"                              }`}                            >                              <div                                className={`w-5 h-5 rounded-md flex items-center justify-center ${                                  product.subcategoryId === subcategory.id                                    ? "bg-[#4f507f] text-white"                                    : "border border-gray-300"                                }`}                              >                                {product.subcategoryId === subcategory.id && (                                  <Check size={14} />                                )}                              </div>                              <span>— {subcategory.name}</span>                            </div>                          ))}                        </div>                      )}                    </div>                  );                })}              </div>            )}          </div>        </div>        <div className="bg-white rounded-lg p-6 shadow-sm">          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">Product Flags</h2>          <div className="space-y-4">            <div className="flex items-center gap-2">              <input                type="checkbox"                id="is-bestseller"                name="isBestseller"                checked={product.isBestseller}                onChange={handleChange}                className="w-4 h-4 text-[#4f507f] bg-gray-100 border-gray-300 rounded focus:ring-[#4f507f] focus:ring-2"              />              <label htmlFor="is-bestseller" className="text-sm text-gray-700">                Mark as Bestseller              </label>            </div>            <div className="flex items-center gap-2">              <input                type="checkbox"                id="is-new-product"                name="isNewProduct"                checked={product.isNewProduct}                onChange={handleChange}                className="w-4 h-4 text-[#4f507f] bg-gray-100 border-gray-300 rounded focus:ring-[#4f507f] focus:ring-2"              />              <label htmlFor="is-new-product" className="text-sm text-gray-700">                Mark as New Product              </label>            </div>          </div>        </div>        <div className="bg-white rounded-lg p-6 shadow-sm">          <h2 className="text-lg font-medium mb-4 text-[#4f507f]">Product Images</h2>          <div className="space-y-4">            <div className="grid grid-cols-2 gap-2">              {images.map((file, index) => (                <div key={index} className="relative group">                  <Image                    src={URL.createObjectURL(file)}                    alt={`Product ${index + 1}`}                    width={100}                    height={100}                    className="w-full h-24 object-cover rounded-md border"                  />                  <button                    onClick={() => handleRemoveImage(index)}                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"                  >                    <X size={14} />                  </button>                </div>              ))}            </div>            <button              onClick={() => setIsUploadPopupOpen(true)}              className="w-full p-4 border-2 border-dashed border-gray-300 rounded-md hover:border-[#4f507f] transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-[#4f507f]"            >              <Upload size={20} />              Add Image            </button>            {errors.images && (              <p className="text-red-500 text-xs">{errors.images[0]}</p>            )}          </div>        </div>        <div className="flex gap-3">          <button            onClick={saveProduct}            disabled={productMutation.isPending}            className="flex-1 bg-[#4f507f] text-white px-4 py-2 rounded-md hover:bg-[#3f4167] disabled:opacity-50 disabled:cursor-not-allowed"          >            {productMutation.isPending ? "Saving..." : "Save Product"}          </button>          <button            onClick={() => router.push('/admin/products')}            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"          >            Cancel          </button>        </div>      </div>      {isUploadPopupOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">Upload Image</h3>
               <button
-                onClick={() => setProduct({ ...product, status: "DRAFT" })}
-                className={`px-4 py-2 rounded-md ${
-                  product.status === "DRAFT"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-gray-100 text-gray-800"
-                }`}>
-                Draft
+                onClick={() => {
+                  setIsUploadPopupOpen(false);
+                  setUploadError(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+                disabled={isUploading}
+              >
+                <X size={20} />
               </button>
+            </div>
+            
+            {uploadError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">
+                {uploadError}
+              </div>
+            )}
+            
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <Upload className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+              <p className="text-sm text-gray-600 mb-4">
+                Drag and drop your image here, or click to browse
+              </p>
+              <p className="text-xs text-gray-500 mb-4">
+                Supported formats: JPG, PNG, WebP (Max 5MB)
+              </p>
+              
+              <label className="inline-block px-4 py-2 bg-[#4f507f] text-white rounded-md cursor-pointer hover:bg-[#3f4167] disabled:opacity-50 disabled:cursor-not-allowed">
+                {isUploading ? 'Uploading...' : 'Select Image'}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/jpeg, image/png, image/webp"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      await handleAddImage(file);
+                    }
+                  }}
+                  disabled={isUploading}
+                />
+              </label>
+            </div>
+            
+            <div className="mt-4 flex justify-end gap-2">
               <button
-                onClick={() => setProduct({ ...product, status: "PUBLISHED" })}
-                className={`px-4 py-2 rounded-md ${
-                  product.status === "PUBLISHED"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-800"
-                }`}>
-                Published
+                onClick={() => {
+                  setIsUploadPopupOpen(false);
+                  setUploadError(null);
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                disabled={isUploading}
+              >
+                Cancel
               </button>
             </div>
           </div>
         </div>
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            className="flex-1 bg-[#4f507f] text-white py-2 px-4 rounded-md hover:bg-[#3e3f63] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={saveProduct}
-            disabled={productMutation.isPending}>
-            {productMutation.isPending ? "Saving..." : "Save Product"}
-          </button>
-          <button
-            type="button"
-            className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-50 transition-colors">
-            Cancel
-          </button>
-        </div>
-      </div>
-      {isUploadPopupOpen && (
-        <UploadPopup
-          onSuccess={handleAddImage}
-          onClose={() => setIsUploadPopupOpen(false)}
-        />
-      )}
-      {varientImgPopUp && (
-        <UploadPopup
-          onSuccess={handleAddVarientImage}
-          onClose={() => setVarientImgPopUp(false)}
-        />
-      )}
-    </div>
-  );
-}
+      )}    </div>  );}

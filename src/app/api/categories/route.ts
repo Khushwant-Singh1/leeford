@@ -11,14 +11,22 @@ import { uploadImageToS3 } from "@/lib/s3";
  */
 export async function GET() {
   try {
+    // Fetch all categories (both main categories and subcategories)
     const categories = await prisma.category.findMany({
       include: {
-        subcategories: true,
+        parent: true, // Include parent info for subcategories
+        _count: {
+          select: {
+            products: true
+          }
+        }
       },
-      where: {
-        parentId: null,
-      },
+      orderBy: [
+        { parentId: 'asc' }, // Main categories first (null parentId)
+        { name: 'asc' }
+      ]
     });
+    
     return NextResponse.json(categories);
   } catch (error) {
     console.error("Failed to fetch categories:", error);
@@ -60,10 +68,23 @@ export async function POST(req: Request) {
       imageUrl = await uploadImageToS3(buffer, imageFile.type);
     }
 
-    const slug = name
+    // Create a base slug
+    const baseSlug = name
       .toLowerCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9-]/g, "");
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+
+    // Check if a category with this slug already exists
+    let slug = baseSlug;
+    let slugExists = await prisma.category.findUnique({
+      where: { slug }
+    });
+
+    // If slug exists, append a timestamp to make it unique
+    if (slugExists) {
+      const timestamp = Date.now();
+      slug = `${baseSlug}-${timestamp}`;
+    }
 
     const newCategory = await prisma.category.create({
       data: {
