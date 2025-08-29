@@ -60,7 +60,7 @@ model User {
 model VerificationCode {
   id          String   @id @default(uuid())
   code        String
-  phoneNumber String
+  phoneNumber String?
   email       String?
   isUsed      Boolean  @default(false)
   expiresAt   DateTime

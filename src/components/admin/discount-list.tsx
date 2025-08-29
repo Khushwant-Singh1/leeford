@@ -38,15 +38,15 @@ export function DiscountList() {
   useEffect(() => { fetchDiscounts() }, [])
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this discount?')) return
+    if (!confirm('Are you sure you want to delete this discount?')) return
     try {
       const res = await fetch(`/api/discounts/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete')
+      if (!res.ok) throw new Error('Failed to delete discount')
       toast({ title: 'Success', description: 'Discount deleted' })
       fetchDiscounts()
     } catch (error) {
       console.error('Error:', error)
-      toast({ title: 'Error', description: 'Failed to delete', variant: 'destructive' })
+      toast({ title: 'Error', description: 'Failed to delete discount', variant: 'destructive' })
     }
   }
 
@@ -57,12 +57,12 @@ export function DiscountList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !discount.isActive }),
       })
-      if (!res.ok) throw new Error('Failed to update')
+      if (!res.ok) throw new Error('Failed to update status')
       toast({ title: 'Success', description: 'Status updated' })
       fetchDiscounts()
     } catch (error) {
       console.error('Error:', error)
-      toast({ title: 'Error', description: 'Failed to update', variant: 'destructive' })
+      toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' })
     }
   }
 
@@ -113,9 +113,10 @@ export function DiscountList() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${
                         discount.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}
+                      onClick={() => toggleStatus(discount)}
                     >
                       {discount.isActive ? 'Active' : 'Inactive'}
                     </span>
@@ -147,10 +148,10 @@ export function DiscountList() {
       <DiscountModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        discount={selectedDiscount}
+        // FIX: Convert null to undefined to match the expected prop type
+        discount={selectedDiscount || undefined}
         onSuccess={fetchDiscounts}
       />
     </div>
   )
 }
-
