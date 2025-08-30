@@ -3,18 +3,14 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Role } from "@prisma/client";
 
-interface PatchParams {
-  params: { id: string };
-}
-
-export async function PATCH(req: Request, { params }: PatchParams) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
 
   if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { id } = params;
+  const { id } = await params;
   const { role } = (await req.json()) as { role: Role };
 
   if (!role || !Object.values(Role).includes(role)) {

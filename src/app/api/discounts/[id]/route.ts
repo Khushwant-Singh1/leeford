@@ -1,10 +1,28 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { DiscountType, DiscountApplicability } from "@prisma/client";
+
+type DiscountUpdateData = {
+  name?: string;
+  code?: string;
+  description?: string | null;
+  discountType?: DiscountType;
+  discountValue?: number;
+  applicability?: DiscountApplicability;
+  minimumPurchase?: number | null;
+  maximumDiscount?: number | null;
+  validFrom?: string | Date;
+  validTo?: string | Date;
+  isActive?: boolean;
+  usageLimit?: number | null;
+  perUserLimit?: number | null;
+  minQuantity?: number | null;
+};
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -15,8 +33,9 @@ export async function GET(
       );
     }
 
+    const { id } = await params;
     const discount = await prisma.discount.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         products: {
           include: {
@@ -68,7 +87,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -79,16 +98,17 @@ export async function PATCH(
       );
     }
 
+    const { id } = await params;
     const body = await request.json();
     
     // Handle date conversion if provided
-    const data: any = { ...body };
-    if (data.validFrom) data.validFrom = new Date(data.validFrom);
-    if (data.validTo) data.validTo = new Date(data.validTo);
+    const data: Partial<DiscountUpdateData> = { ...body };
+    if (data.validFrom) data.validFrom = new Date(data.validFrom as string);
+    if (data.validTo) data.validTo = new Date(data.validTo as string);
 
-    // Update the discount
-    const updatedDiscount = await prisma.discount.update({
-      where: { id: params.id },
+    // Update the discount (removed unused variable)
+    await prisma.discount.update({
+      where: { id },
       data: {
         ...data,
         // Don't allow updating these fields directly
@@ -101,7 +121,7 @@ export async function PATCH(
     if (body.products) {
       // First, remove all existing product relations
       await prisma.productDiscount.deleteMany({
-        where: { discountId: params.id }
+        where: { discountId: id }
       });
 
       // Then add the new ones
@@ -109,7 +129,7 @@ export async function PATCH(
         await prisma.productDiscount.createMany({
           data: body.products.map((productId: string) => ({
             productId,
-            discountId: params.id
+            discountId: id
           }))
         });
       }
@@ -119,7 +139,7 @@ export async function PATCH(
     if (body.categories) {
       // First, remove all existing category relations
       await prisma.categoryDiscount.deleteMany({
-        where: { discountId: params.id }
+        where: { discountId: id }
       });
 
       // Then add the new ones
@@ -127,7 +147,7 @@ export async function PATCH(
         await prisma.categoryDiscount.createMany({
           data: body.categories.map((categoryId: string) => ({
             categoryId,
-            discountId: params.id
+            discountId: id
           }))
         });
       }
@@ -135,7 +155,7 @@ export async function PATCH(
 
     // Fetch the updated discount with relations
     const updatedDiscountWithRelations = await prisma.discount.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         products: {
           include: {
@@ -166,7 +186,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -177,22 +197,24 @@ export async function DELETE(
       );
     }
 
+    const { id } = await params;
+
     // First, delete all related records
     await prisma.productDiscount.deleteMany({
-      where: { discountId: params.id }
+      where: { discountId: id }
     });
 
     await prisma.categoryDiscount.deleteMany({
-      where: { discountId: params.id }
+      where: { discountId: id }
     });
 
     await prisma.userDiscountUsage.deleteMany({
-      where: { discountId: params.id }
+      where: { discountId: id }
     });
 
     // Then delete the discount
     await prisma.discount.delete({
-      where: { id: params.id }
+      where: { id }
     });
 
     return new Response(null, { status: 204 });

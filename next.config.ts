@@ -1,17 +1,28 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Enables the standalone output mode, crucial for Docker optimization
+  output: 'standalone',
+
   async headers() {
     return [
       {
-        // Apply these headers to all routes
         source: '/:path*',
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
+            // Reads the allowed origin from environment variables for flexibility
             value: process.env.NODE_ENV === 'development' 
-              ? 'http://172.16.1.132:3000' 
-              : 'https://your-production-domain.com',
+              ? process.env.ALLOWED_ORIGIN_DEV || 'http://localhost:3000'
+              : process.env.ALLOWED_ORIGIN_PROD || 'https://www.leeford.in',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization',
           },
         ],
       },

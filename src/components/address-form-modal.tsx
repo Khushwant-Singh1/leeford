@@ -129,7 +129,11 @@ export default function AddressFormModal({ isOpen, onClose, onSubmit }: AddressF
             </div>
 
             <div className="flex items-center space-x-2">
-              <Checkbox id="default-address" checked={isDefaultAddress} onCheckedChange={setIsDefaultAddress} />
+              <Checkbox 
+                id="default-address" 
+                checked={isDefaultAddress} 
+                onCheckedChange={(checked) => setIsDefaultAddress(checked === true)} 
+              />
               <label htmlFor="default-address" className="text-sm cursor-pointer">
                 Use as My Default Address
               </label>

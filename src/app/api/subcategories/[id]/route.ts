@@ -4,21 +4,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
-interface RouteContext {
-  params: {
-    id: string;
-  };
-}
-
 /**
  * GET handler for fetching a specific subcategory by its ID.
  * @param {Request} _req - The incoming request object (unused).
- * @param {RouteContext} context - Contains the route parameters, including the subcategory ID.
+ * @param {Object} context - Contains the route parameters, including the subcategory ID.
  * @returns {Promise<NextResponse>} A response containing the subcategory data.
  */
-export async function GET(_req: Request, { params }: RouteContext) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     const subcategory = await prisma.category.findUnique({
       where: { 
@@ -62,17 +56,17 @@ export async function GET(_req: Request, { params }: RouteContext) {
 /**
  * PATCH handler for updating a subcategory.
  * @param {Request} req - The incoming request object.
- * @param {RouteContext} context - Contains the route parameters, including the subcategory ID.
+ * @param {Object} context - Contains the route parameters, including the subcategory ID.
  * @returns {Promise<NextResponse>} A response containing the updated subcategory.
  */
-export async function PATCH(req: Request, { params }: RouteContext) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user || !["ADMIN", "EDITOR"].includes(session.user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const { name, description, parentId } = await req.json();
 
     if (!name) {
@@ -126,7 +120,7 @@ export async function PATCH(req: Request, { params }: RouteContext) {
     }
 
     // Generate slug with parent category to ensure uniqueness
-    let baseSlug = name
+    const baseSlug = name
       .toLowerCase()
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9-]/g, "");
@@ -189,17 +183,17 @@ export async function PATCH(req: Request, { params }: RouteContext) {
 /**
  * DELETE handler for removing a specific subcategory by its ID.
  * @param {Request} _req - The incoming request object (unused).
- * @param {RouteContext} context - Contains the route parameters, including the subcategory ID.
+ * @param {Object} context - Contains the route parameters, including the subcategory ID.
  * @returns {Promise<NextResponse>} A response indicating success or failure.
  */
-export async function DELETE(_req: Request, { params }: RouteContext) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user || !["ADMIN", "EDITOR"].includes(session.user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Verify the subcategory exists and is actually a subcategory
     const existingSubcategory = await prisma.category.findUnique({

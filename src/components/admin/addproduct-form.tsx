@@ -11,6 +11,7 @@ import { categoryApi } from "@/lib/api/categories";
 import cuid from "cuid";
 import { varientApi } from "@/lib/api/varients";
 import { productApi } from "@/lib/api/productdetails";
+import { productsApi } from "@/lib/api/products";
 
 export function AddProductForm() {
   const [isUploadPopupOpen, setIsUploadPopupOpen] = useState(false);
@@ -95,11 +96,11 @@ export function AddProductForm() {
       newErrors.images = "At least one product image is required";
     }
 
-    if (!product.category_id.trim()) {
+    if (!product.category_id || !product.category_id.trim()) {
       newErrors.category = "Please select a category";
     }
 
-    if (!product.material.trim()) {
+    if (!product.material || !product.material.trim()) {
       newErrors.material = "Please select a material";
     }
 
@@ -171,14 +172,21 @@ export function AddProductForm() {
     );
   };
 
-  const handleAddVarientImage = (imageUrl: string) => {
+  const handleAddVarientImage = (file: File) => {
+    const imageUrl = URL.createObjectURL(file);
     // In a real app, this would open a file picker
     setVariants(
       variants.map((variant) => {
         if (variant.id === varientId) {
           return {
             ...variant,
-            images: [...variant.images, { url: imageUrl, type: "IMAGE" }],
+            images: [...variant.images, { 
+              asset_url: imageUrl,
+              url: imageUrl,
+              type: "IMAGE",
+              colorId: null,
+              productId: null
+            }],
           };
         }
         return variant;
@@ -208,10 +216,17 @@ export function AddProductForm() {
     queryFn: () => categoryApi.getAll(),
   });
 
-  const handleAddImage = (imageUrl: string) => {
+  const handleAddImage = (file: File) => {
+    const imageUrl = URL.createObjectURL(file);
     setProduct({
       ...product,
-      assets: [...(product.assets || []), { url: imageUrl, type: "IMAGE" }],
+      assets: [...(product.assets || []), { 
+        asset_url: imageUrl, 
+        url: imageUrl, // For backward compatibility
+        type: "IMAGE",
+        colorId: null,
+        productId: null
+      }],
     });
     setIsUploadPopupOpen(false);
   };
@@ -229,8 +244,11 @@ export function AddProductForm() {
       productId: string;
       color: string;
       assets: {
-        url: string;
+        asset_url: string;
+        url?: string;
         type: "IMAGE" | "VIDEO";
+        colorId: string | null;
+        productId: string | null;
       }[];
       sizes: {
         size:
@@ -248,7 +266,23 @@ export function AddProductForm() {
   });
 
   const productMutation = useMutation({
-    mutationFn: (product: Product) => productApi.addProduct(product),
+    mutationFn: async (productData: Product) => {
+      // Convert Product to AddProductPayload format
+      const payload = {
+        title: productData.name,
+        description: productData.description,
+        price: productData.price,
+        comparePrice: productData.discountPrice,
+        sku: `PROD-${Date.now()}`,
+        stockQuantity: 0,
+        categoryId: productData.category_id,
+        isBestseller: false,
+        isNewProduct: true,
+        status: productData.status as any,
+        images: [] as File[], // We'll handle images separately
+      };
+      return productsApi.addProduct(payload);
+    },
     onSuccess: (data) => {
       if (data && data.id) {
         const productId = data.id;
@@ -256,7 +290,13 @@ export function AddProductForm() {
           variantMutation.mutate({
             productId,
             color: variant.color,
-            assets: variant.images,
+            assets: variant.images.map(img => ({
+              asset_url: img.url,
+              url: img.url,
+              type: img.type,
+              colorId: null,
+              productId: null
+            })),
             sizes: variant.sizes.map((size) => ({
               size: size.name as
                 | "SIZE_5"

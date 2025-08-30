@@ -62,6 +62,8 @@ model VerificationCode {
   code        String
   phoneNumber String?
   email       String?
+  attempts    Int      @default(0)
+  usedAt      DateTime?
   isUsed      Boolean  @default(false)
   expiresAt   DateTime
   createdAt   DateTime @default(now())
@@ -676,4 +678,30 @@ model TaxRate {
   taxCategories TaxCategory[]
 
   @@index([country, state, zipCode])
+}
+
+// prisma/schema.prisma
+
+enum SecurityEventLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+model SecurityLog {
+  id        String             @id @default(cuid())
+  createdAt DateTime           @default(now())
+  
+  eventType String
+  level     SecurityEventLevel
+  
+  actor     String?
+  ipAddress String?
+  userAgent String?
+  
+  details   Json
+
+  @@index([createdAt])
+  @@index([eventType])
+  @@index([actor])
 }

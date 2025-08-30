@@ -5,7 +5,32 @@ import { auth } from "@/lib/auth";
 import { uploadImageToS3 } from "@/lib/s3";
 import { productSchema } from "@/lib/validations/product-schema";
 import { z } from "zod";
-import { Prisma } from "@prisma/client"; // Import Prisma type for where clauses
+import { Prisma, ProductStatus } from "@prisma/client";
+
+type ProductFormData = {
+  title: string;
+  description: string;
+  price: string;
+  stockQuantity: string;
+  comparePrice?: string;
+  lowStockThreshold?: string;
+  isBestSeller?: string;
+  isNewProduct?: string;
+  status?: ProductStatus;
+  categoryId: string;
+  madeOf?: string;
+  weight?: string;
+  rating?: string;
+  sku: string;
+  images?: File[];
+  variants?: Array<{
+    name: string;
+    price: string;
+    sku: string;
+    stock: string;
+    attributes: Record<string, unknown>;
+  }>;
+};
 
 /**
  * GET handler for fetching products with pagination and search.
@@ -19,7 +44,6 @@ export async function GET(req: NextRequest) {
 
     const skip = (page - 1) * limit;
 
-    // FIX: Explicitly type the whereClause to match Prisma's expected input type.
     const whereClause: Prisma.ProductWhereInput = searchTerm
       ? {
           OR: [
@@ -29,31 +53,26 @@ export async function GET(req: NextRequest) {
         }
       : {};
 
-    // Fetch products and total count in parallel for efficiency
-    const [products, totalProducts] = await prisma.$transaction([
+    const [products, total] = await Promise.all([
       prisma.product.findMany({
         where: whereClause,
-        skip: skip,
+        skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
         include: {
-          images: {
-            orderBy: { position: "asc" },
-            take: 1, // Only get the first image for the table view
-          },
+          category: true,
+          images: true,
         },
+        orderBy: { createdAt: "desc" },
       }),
       prisma.product.count({ where: whereClause }),
     ]);
 
     return NextResponse.json({
-      success: true,
-      products,
+      data: products,
       pagination: {
-        totalPages: Math.ceil(totalProducts / limit),
-        currentPage: page,
-        totalItems: totalProducts,
-        itemsPerPage: limit,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
@@ -78,30 +97,34 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const images = formData.getAll("images") as File[];
 
-    const productData: any = {};
+    // Convert FormData to a plain object with proper typing
+    const formDataObj: Partial<ProductFormData> = {};
     formData.forEach((value, key) => {
       if (key !== "images" && key !== "variants") {
-        productData[key] = value;
+        (formDataObj as any)[key] = value.toString();
       }
     });
 
     // Type conversions for validation
     const parsedData = {
-      ...productData,
-      price: parseFloat(productData.price),
-      stockQuantity: parseInt(productData.stockQuantity, 10),
-      comparePrice: productData.comparePrice ? parseFloat(productData.comparePrice) : undefined,
-      lowStockThreshold: productData.lowStockThreshold ? parseInt(productData.lowStockThreshold, 10) : undefined,
-      isBestSeller: productData.isBestseller === 'true',
-      isNewProduct: productData.isNewProduct === 'true',
-      weight: productData.weight ? parseFloat(productData.weight) : undefined,
-      rating: productData.rating ? parseFloat(productData.rating) : undefined,
+      ...formDataObj,
+      price: parseFloat(formDataObj.price || "0"),
+      stockQuantity: parseInt(formDataObj.stockQuantity || "0", 10),
+      comparePrice: formDataObj.comparePrice ? parseFloat(formDataObj.comparePrice) : null,
+      lowStockThreshold: formDataObj.lowStockThreshold ? parseInt(formDataObj.lowStockThreshold, 10) : null,
+      isBestSeller: formDataObj.isBestSeller === 'true',
+      isNewProduct: formDataObj.isNewProduct === 'true',
+      weight: formDataObj.weight ? parseFloat(formDataObj.weight) : undefined,
+      rating: formDataObj.rating ? parseFloat(formDataObj.rating) : undefined,
     };
 
     const validationResult = productSchema.safeParse(parsedData);
 
     if (!validationResult.success) {
-      return NextResponse.json({ error: validationResult.error.flatten().fieldErrors }, { status: 400 });
+      return NextResponse.json(
+        { error: validationResult.error.flatten().fieldErrors },
+        { status: 400 }
+      );
     }
 
     const validatedData = validationResult.data;
@@ -119,41 +142,57 @@ export async function POST(req: NextRequest) {
 
     if (!categoryExists) {
       return NextResponse.json(
-        { error: "Invalid category" },
-        { status: 400 }
+        { error: "Category not found" },
+        { status: 404 }
       );
     }
 
-    const imageUrls: string[] = [];
-    if (images.length > 0) {
-      for (const image of images) {
+    // Upload images to S3
+    const imageUrls = await Promise.all(
+      images.map(async (image) => {
         const buffer = Buffer.from(await image.arrayBuffer());
-        const url = await uploadImageToS3(buffer, image.type);
-        imageUrls.push(url);
-      }
-    }
+        return uploadImageToS3(buffer, image.type);
+      })
+    );
 
-    const newProduct = await prisma.product.create({
-      data: {
-        ...validatedData,
-        images: {
-          create: imageUrls.map((url, index) => ({
+    // Create product with images in a transaction
+    const product = await prisma.$transaction(async (prisma) => {
+      const newProduct = await prisma.product.create({
+        data: {
+          title: validatedData.title,
+          description: validatedData.description,
+          price: validatedData.price,
+          stockQuantity: validatedData.stockQuantity,
+          comparePrice: validatedData.comparePrice,
+          lowStockThreshold: validatedData.lowStockThreshold,
+          isBestSeller: validatedData.isBestSeller || false,
+          isNewProduct: validatedData.isNewProduct || false,
+          status: validatedData.status || 'DRAFT',
+          categoryId: validatedData.categoryId,
+          madeOf: validatedData.madeOf || null,
+          weight: validatedData.weight,
+          rating: validatedData.rating,
+          sku: validatedData.sku,
+        },
+      });
+
+      // Add images
+      if (imageUrls.length > 0) {
+        await prisma.productImage.createMany({
+          data: imageUrls.map((url, index) => ({
             url,
             position: index,
+            productId: newProduct.id,
           })),
-        },
-      },
+        });
+      }
+
+      return newProduct;
     });
 
-    return NextResponse.json(newProduct, { status: 201 });
+    return NextResponse.json(product, { status: 201 });
   } catch (error) {
     console.error("Failed to create product:", error);
-    if (error instanceof Error && 'code' in error && (error as any).code === 'P2002') {
-        return NextResponse.json(
-            { error: "A product with this SKU already exists." },
-            { status: 409 } 
-        );
-    }
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

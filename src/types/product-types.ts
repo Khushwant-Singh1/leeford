@@ -50,7 +50,7 @@ export interface Asset {
 }
 
 export interface Varient {
-  id: string;
+  id?: string; // Make id optional for new variants
   color: string;
   productId: string;
   assets: Asset[];

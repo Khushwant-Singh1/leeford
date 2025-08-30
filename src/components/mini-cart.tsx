@@ -71,7 +71,7 @@ export default function MiniCart({ isOpen, onClose, cartItems, removeFromCart, u
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed inset-0 md:inset-y-14 md:inset-x-auto md:top-14 md:right-4 md:left-auto md:h-5/6 md:w-full md:max-w-md bg-white shadow-xl z-50 overflow-hidden md:rounded-lg"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
           >
             <div className="flex flex-col h-full">
               {/* Header */}

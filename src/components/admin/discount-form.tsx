@@ -69,6 +69,9 @@ const discountFormSchema = z.object({
   path: ["validTo"],
 });
 
+// Type definition for form values
+type DiscountFormValues = z.infer<typeof discountFormSchema>;
+
 
 interface DiscountFormProps {
   discount?: DiscountWithRelations;

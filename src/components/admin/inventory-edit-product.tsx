@@ -3,20 +3,14 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Plus, Minus, X, Upload } from "lucide-react";
 import Link from "next/link";
-import { productApi } from "@/lib/api/productdetails";
+import { productApi, Product, Size } from "@/lib/api/productdetails";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Products } from "./products-table";
+import { ProductsTable } from "./products-table";
 import UploadPopup from "../UploadPopup";
 import { inventoryApi } from "@/lib/api/inventory";
 import Image from "next/image";
 
-// Define types based on the provided JSON structure
-interface Size {
-  id: string;
-  size: string;
-  stock: number;
-  colorId: string;
-}
+// Types are now defined in productdetails.ts
 
 // Available sizes for selection
 const availableSizes = [
@@ -31,7 +25,7 @@ const availableSizes = [
 ];
 
 export function ProductInventoryEditor({ productId }: { productId: string }) {
-  const [product, setProduct] = useState<Products | null>(null);
+  const [product, setProduct] = useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
   const [stockUpdates, setStockUpdates] = useState<Record<string, number>>({});
   const [successMessage, setSuccessMessage] = useState("");
@@ -102,7 +96,7 @@ export function ProductInventoryEditor({ productId }: { productId: string }) {
     }
 
     // For existing colors
-    if (product?.colors.find((c) => c.id === colorId)) {
+    if (product?.colors?.find((c) => c.id === colorId)) {
       const updatedSizes = [...(newSizes[colorId] || []), { ...newSize }];
       setNewSizes({
         ...newSizes,
@@ -131,7 +125,7 @@ export function ProductInventoryEditor({ productId }: { productId: string }) {
 
   const handleRemoveNewSize = (colorId: string, sizeIndex: number) => {
     // For existing colors
-    if (product?.colors.find((c) => c.id === colorId)) {
+    if (product?.colors?.find((c) => c.id === colorId)) {
       const updatedSizes = [...(newSizes[colorId] || [])];
       updatedSizes.splice(sizeIndex, 1);
       setNewSizes({
@@ -150,8 +144,9 @@ export function ProductInventoryEditor({ productId }: { productId: string }) {
     }
   };
 
-  const handleImageUpload = (imageUrl: string) => {
-    // In a real implementation, this would open a file picker and upload the image
+  const handleImageUpload = (file: File) => {
+    // In a real implementation, this would upload the file and get the URL
+    const imageUrl = URL.createObjectURL(file); // Temporary URL for preview
     setNewColor({ ...newColor, imageUrl });
     setUpload(false);
   };
@@ -304,7 +299,7 @@ export function ProductInventoryEditor({ productId }: { productId: string }) {
 
   // Get available sizes that aren't already used for a specific color
   const getAvailableSizesForColor = (colorId: string) => {
-    const existingColor = product?.colors.find((c) => c.id === colorId);
+    const existingColor = product?.colors?.find((c) => c.id === colorId);
     const existingSizes = existingColor
       ? existingColor.sizes.map((s) => s.size)
       : [];
@@ -334,7 +329,7 @@ export function ProductInventoryEditor({ productId }: { productId: string }) {
             </Link>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {product?.name}
+                {product?.title}
               </h2>
               <p className="text-sm text-gray-500">ID: {product?.id}</p>
             </div>
@@ -611,7 +606,7 @@ export function ProductInventoryEditor({ productId }: { productId: string }) {
 
         {/* Existing Colors */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {product?.colors.map((color) => (
+          {product?.colors?.map((color) => (
             <div
               key={color.id}
               className="border border-gray-200 rounded-lg overflow-hidden">

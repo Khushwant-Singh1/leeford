@@ -1,9 +1,25 @@
 // src/lib/api/productdetails.ts
 import { Product as PrismaProduct, ProductImage } from "@prisma/client";
 
+// Define types based on the provided JSON structure
+export interface Size {
+  id: string;
+  size: string;
+  stock: number;
+  colorId: string;
+}
+
+export interface Color {
+  id: string;
+  color: string;
+  sizes: Size[];
+  assets: Array<{ asset_url: string }>;
+}
+
 // Define a consistent Product type for the frontend, including relations
 export interface Product extends PrismaProduct {
   images?: ProductImage[];
+  colors?: Color[];
 }
 
 // Define the expected structure of the API response for getProducts

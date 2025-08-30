@@ -4,7 +4,7 @@ import { ProductPerformanceApi } from "@/lib/api/productperformance";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { ProductPerformance } from "./product-performance-table";
+import { ProductPerformance } from "@/lib/api/productperformance";
 
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Search, Heart, ShoppingBag, User, Menu, X } from "lucide-react"
-import { useCart } from "@/context/cart-context"
+import { useCart } from "../context/cart-context"
 import MiniCart from "@/components/mini-cart"
 
 export default function Navbar() {

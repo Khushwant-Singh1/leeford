@@ -82,10 +82,12 @@ export function TestimonialForm({ testimonial, onSubmit, onCancel }: Testimonial
     setFormData({ ...formData, [name]: value })
   }
 
-  const handleImageUpload = (imageUrl: string) => {
-    setFormData({ ...formData, image: imageUrl })
-    setUploadPopup(false)
-  }
+  const handleImageUpload: (file: File) => void = (file: File) => {
+    // Convert File to URL or handle upload logic
+    const imageUrl = URL.createObjectURL(file);
+    setFormData({ ...formData, image: imageUrl });
+    setUploadPopup(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

@@ -90,7 +90,7 @@ export async function POST(req: Request) {
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9-]/g, "");
     
-    let slug = `${parentSlug}-${baseSlug}`;
+    const slug = `${parentSlug}-${baseSlug}`;
     
     // Check for slug uniqueness and add counter if needed
     let counter = 1;
