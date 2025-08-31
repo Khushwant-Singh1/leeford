@@ -237,6 +237,9 @@ model Service {
   parent      Service? @relation("ServiceHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children    Service[] @relation("ServiceHierarchy")
 
+  // Dynamic page components for rich content pages
+  components  PageComponent[]
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -244,6 +247,60 @@ model Service {
   @@index([isActive])
   @@index([depth])
   @@unique([parentId, position]) // Ensure unique position per parent
+}
+
+// Page component system for dynamic content creation
+enum PageComponentType {
+  HEADING
+  TEXT_BLOCK
+  IMAGE
+  IMAGE_CAROUSEL
+  VIDEO_EMBED
+  REVIEW_CARD
+  ARTICLE_GRID
+  QUOTE_BLOCK
+  CTA_BUTTON
+  SPACER
+  DIVIDER
+}
+
+// This model represents a single component/block on a dynamic page
+model PageComponent {
+  id           String            @id @default(uuid())
+  order        Int               // The display order of this component on the page (0, 1, 2...)
+  type         PageComponentType // What kind of component is this?
+  content      Json              // The actual data for the component (e.g., text, image URL)
+  styleVariant String?           // Style variant for the component (e.g., "centered", "with-underline")
+
+  // Relation to the Service page it belongs to
+  serviceId String
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  // Optional relation for complex components like carousels
+  carouselImages CarouselImage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceId, order])
+}
+
+// A supporting model specifically for the Image Carousel component
+model CarouselImage {
+  id        String  @id @default(uuid())
+  imageUrl  String
+  altText   String?
+  caption   String?
+  order     Int
+
+  // Relation to the PageComponent that holds the carousel
+  pageComponentId String
+  pageComponent   PageComponent @relation(fields: [pageComponentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pageComponentId, order])
 }
 
 // Order management

@@ -70,8 +70,8 @@ export function BlogDashboard({ currentUserId, userRole }: BlogDashboardProps) {
   const [categories, setCategories] = useState<Array<{ id: string; name: string; slug: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [stats, setStats] = useState({
@@ -89,8 +89,8 @@ export function BlogDashboard({ currentUserId, userRole }: BlogDashboardProps) {
         page: currentPage.toString(),
         limit: '10',
         ...(searchTerm && { search: searchTerm }),
-        ...(statusFilter && { status: statusFilter }),
-        ...(categoryFilter && { categoryId: categoryFilter }),
+        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter }),
+        ...(categoryFilter && categoryFilter !== 'all' && { categoryId: categoryFilter }),
       });
 
       const response = await fetch(`/api/admin/blog/posts?${params}`);
@@ -307,7 +307,7 @@ export function BlogDashboard({ currentUserId, userRole }: BlogDashboardProps) {
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="DRAFT">Draft</SelectItem>
             <SelectItem value="IN_REVIEW">In Review</SelectItem>
             <SelectItem value="PUBLISHED">Published</SelectItem>
@@ -320,7 +320,7 @@ export function BlogDashboard({ currentUserId, userRole }: BlogDashboardProps) {
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All categories</SelectItem>
+            <SelectItem value="all">All categories</SelectItem>
             {categories.map(category => (
               <SelectItem key={category.id} value={category.id}>
                 {category.name}

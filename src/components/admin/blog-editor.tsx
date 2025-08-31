@@ -68,7 +68,7 @@ export function BlogEditor({
   const [excerpt, setExcerpt] = useState(initialData?.excerpt || '');
   const [featuredImage, setFeaturedImage] = useState(initialData?.featuredImage || '');
   const [status, setStatus] = useState(initialData?.status || 'DRAFT');
-  const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
+  const [categoryId, setCategoryId] = useState(initialData?.categoryId || 'none');
   const [selectedTags, setSelectedTags] = useState<string[]>(initialData?.tagIds || []);
   const [seoTitle, setSeoTitle] = useState(initialData?.seoTitle || '');
   const [seoDescription, setSeoDescription] = useState(initialData?.seoDescription || '');
@@ -82,6 +82,7 @@ export function BlogEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: {
@@ -183,7 +184,7 @@ export function BlogEditor({
         excerpt,
         featuredImage: featuredImage || undefined,
         status,
-        categoryId: categoryId || undefined,
+        categoryId: categoryId !== 'none' ? categoryId : undefined,
         tagIds: selectedTags,
         seoTitle: seoTitle || undefined,
         seoDescription: seoDescription || undefined,
@@ -378,7 +379,7 @@ export function BlogEditor({
               <SelectValue placeholder="Select category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No category</SelectItem>
+              <SelectItem value="none">No category</SelectItem>
               {categories.map(category => (
                 <SelectItem key={category.id} value={category.id}>
                   {category.name}

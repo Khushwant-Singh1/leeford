@@ -40,7 +40,7 @@ interface Service {
     name: string;
     slug: string;
   }>;
-  _count: {
+  _count?: {
     children: number;
   };
 }
@@ -50,7 +50,7 @@ export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [stats, setStats] = useState({
@@ -68,21 +68,22 @@ export default function ServicesPage() {
         page: currentPage.toString(),
         limit: '10',
         ...(searchTerm && { search: searchTerm }),
-        ...(statusFilter && { status: statusFilter }),
+        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter }),
       });
 
       const response = await fetch(`/api/admin/services?${params}`);
       const data = await response.json();
 
       if (response.ok) {
-        setServices(data.services);
-        setTotalPages(data.pagination.pages);
+        setServices(data.services || []);
+        setTotalPages(data.pagination?.pages || 1);
         
         // Calculate stats
-        const totalServices = data.pagination.total;
-        const activeServices = data.services.filter((s: Service) => s.isActive).length;
-        const inactiveServices = data.services.filter((s: Service) => !s.isActive).length;
-        const parentServices = data.services.filter((s: Service) => !s.parent).length;
+        const servicesList = data.services || [];
+        const totalServices = data.pagination?.total || servicesList.length;
+        const activeServices = servicesList.filter((s: Service) => s.isActive).length;
+        const inactiveServices = servicesList.filter((s: Service) => !s.isActive).length;
+        const parentServices = servicesList.filter((s: Service) => !s.parent).length;
         
         setStats({ totalServices, activeServices, inactiveServices, parentServices });
       } else {
@@ -267,7 +268,7 @@ export default function ServicesPage() {
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
@@ -324,7 +325,7 @@ export default function ServicesPage() {
                   
                   <TableCell>
                     <Badge variant="secondary">
-                      {service._count.children} sub-services
+                      {service._count?.children || 0} sub-services
                     </Badge>
                   </TableCell>
                   
@@ -348,9 +349,9 @@ export default function ServicesPage() {
                         onClick={() => handleStatusToggle(service)}
                       >
                         {service.isActive ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
                           <Eye className="w-4 h-4" />
+                        ) : (
+                          <EyeOff className="w-4 h-4" />
                         )}
                       </Button>
                       

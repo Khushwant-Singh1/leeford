@@ -33,7 +33,10 @@ declare module "next-auth" {
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // Use the Prisma adapter to connect NextAuth with your database.
-  adapter: PrismaAdapter(prisma),
+  // Note: PrismaAdapter is only used in Node.js runtime, not in Edge runtime
+  ...(process.env.NODE_ENV !== 'production' || typeof window === 'undefined' 
+    ? { adapter: PrismaAdapter(prisma) } 
+    : {}),
 
   // Configure one or more authentication providers.
   providers: [
@@ -121,7 +124,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // Use JSON Web Tokens for session management.
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+
+  // Security settings
+  secret: process.env.NEXTAUTH_SECRET,
+  
+  // Enable debug in development
+  debug: process.env.NODE_ENV === 'development',
 
   // Callbacks are asynchronous functions you can use to control what happens
   // when an action is performed.

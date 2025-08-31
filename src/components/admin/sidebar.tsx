@@ -26,7 +26,8 @@ import {
   PenTool,
   BookOpen,
   Wrench,
-  Cog
+  Cog,
+  Layout
 } from "lucide-react"
 
 export function Sidebar() {
@@ -93,26 +94,26 @@ export function Sidebar() {
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Services</div>
         <div className="space-y-1">
-          <NavItem
-            href="/admin/services"
+          <NavItem 
+            href="/admin/services" 
             icon={<Wrench size={18} />}
             label="All Services"
-            active={isActive("/admin/services")}
+            active={pathname === "/admin/services"}
           />
-          <NavItem
-            href="/admin/services/add"
+          <NavItem 
+            href="/admin/services/add" 
             icon={<Plus size={18} />}
             label="Add Service"
-            active={isActive("/admin/services/add")}
+            active={pathname === "/admin/services/add"}
           />
-          <NavItem
-            href="/admin/services/categories"
-            icon={<Tag size={18} />}
+          <NavItem 
+            href="/admin/services/categories" 
+            icon={<Layers size={18} />}
             label="Service Categories"
             active={isActive("/admin/services/categories")}
           />
-          <NavItem
-            href="/admin/services/analytics"
+          <NavItem 
+            href="/admin/services/analytics" 
             icon={<BarChart2 size={18} />}
             label="Service Analytics"
             active={isActive("/admin/services/analytics")}
@@ -121,6 +122,16 @@ export function Sidebar() {
       </div>
 
       <div className="p-4">
+        <div className="text-sm text-gray-500 mb-2">Page Builder</div>
+        <div className="space-y-1">
+          <NavItem 
+            href="/admin/page-builder" 
+            icon={<Layout size={18} />}
+            label="Build Pages"
+            active={isActive("/admin/page-builder")}
+          />
+        </div>
+      </div>      <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Orders</div>
         <div className="space-y-1">
           <NavItem

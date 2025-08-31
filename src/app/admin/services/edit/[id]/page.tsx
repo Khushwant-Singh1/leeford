@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,12 +13,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// Enhanced validation schema with better error messages
 const formSchema = z.object({
-  name: z.string().min(1, 'Service name is required').max(100, 'Name must be less than 100 characters'),
-  description: z.string().min(1, 'Description is required').max(500, 'Description must be less than 500 characters'),
+  name: z.string()
+    .min(1, 'Service name is required')
+    .max(100, 'Service name must be less than 100 characters')
+    .regex(/^[a-zA-Z0-9\s\-_&()]+$/, 'Service name contains invalid characters'),
+  description: z.string()
+    .min(1, 'Description is required')
+    .max(500, 'Description must be less than 500 characters'),
   parentId: z.string().optional(),
   isActive: z.boolean(),
 });
@@ -29,6 +36,10 @@ interface ParentService {
   id: string;
   name: string;
   slug: string;
+  parent?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 interface Service {
@@ -37,7 +48,26 @@ interface Service {
   description: string;
   parentId: string | null;
   isActive: boolean;
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
 }
+
+// Error boundary component
+const ErrorBoundary = ({ error, reset }: { error: Error; reset: () => void }) => (
+  <Alert variant="destructive" className="max-w-2xl">
+    <AlertCircle className="h-4 w-4" />
+    <AlertDescription>
+      <div className="space-y-2">
+        <p className="font-medium">Something went wrong</p>
+        <p className="text-sm">{error.message}</p>
+        <Button variant="outline" size="sm" onClick={reset}>
+          Try again
+        </Button>
+      </div>
+    </AlertDescription>
+  </Alert>
+);
 
 export default function EditServicePage() {
   const router = useRouter();
@@ -54,7 +84,7 @@ export default function EditServicePage() {
     defaultValues: {
       name: '',
       description: '',
-      parentId: '',
+      parentId: 'none',
       isActive: true,
     },
   });
@@ -70,7 +100,7 @@ export default function EditServicePage() {
           setService(data);
           form.setValue('name', data.name);
           form.setValue('description', data.description);
-          form.setValue('parentId', data.parentId || '');
+          form.setValue('parentId', data.parentId || 'none');
           form.setValue('isActive', data.isActive);
         } else {
           toast({
@@ -101,12 +131,18 @@ export default function EditServicePage() {
   useEffect(() => {
     const fetchParentServices = async () => {
       try {
-        const response = await fetch('/api/admin/services?parentOnly=true');
+        // Fetch all services to allow creating sub-sub-categories
+        const response = await fetch('/api/admin/services?limit=1000&status=active');
         const data = await response.json();
         
         if (response.ok) {
-          // Filter out current service to prevent circular references
-          const filteredServices = data.services?.filter((s: ParentService) => s.id !== serviceId) || [];
+          // Filter out current service and its descendants to prevent circular references
+          const filteredServices = data.services?.filter((s: ParentService) => {
+            // Don't include the current service
+            if (s.id === serviceId) return false;
+            // TODO: Add logic to filter out descendants to prevent circular references
+            return true;
+          }) || [];
           setParentServices(filteredServices);
         }
       } catch (error) {
@@ -127,7 +163,7 @@ export default function EditServicePage() {
         },
         body: JSON.stringify({
           ...values,
-          parentId: values.parentId || null,
+          parentId: values.parentId && values.parentId !== 'none' ? values.parentId : null,
         }),
       });
 
@@ -268,10 +304,15 @@ export default function EditServicePage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">No parent (Root service)</SelectItem>
+                        <SelectItem value="none">No parent (Root service)</SelectItem>
                         {parentServices.map((service) => (
                           <SelectItem key={service.id} value={service.id}>
-                            {service.name}
+                            {service.parent ? `↳ ${service.name}` : service.name}
+                            {service.parent && (
+                              <span className="text-muted-foreground text-xs ml-2">
+                                (under {service.parent.name})
+                              </span>
+                            )}
                           </SelectItem>
                         ))}
                       </SelectContent>

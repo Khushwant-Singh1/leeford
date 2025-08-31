@@ -9,10 +9,13 @@ const updateServiceSchema = z.object({
   name: z.string().min(1, 'Name is required').optional(),
   description: z.string().optional(),
   image: z.string().url().optional(),
-  parentId: z.string().uuid().optional(),
+  parentId: z.string().uuid().optional().nullable(),
   position: z.number().int().optional(),
   isActive: z.boolean().optional(),
-});
+}).transform((data) => ({
+  ...data,
+  parentId: data.parentId === 'none' || data.parentId === '' ? null : data.parentId,
+}));
 
 // GET /api/admin/services/[id] - Get Single Service
 export async function GET(
@@ -60,10 +63,29 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const data = await req.json();
+    
+    let data;
+    try {
+      data = await req.json();
+    } catch (error) {
+      console.error('Failed to parse JSON:', error);
+      return NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 }
+      );
+    }
+
+    if (!data || typeof data !== 'object') {
+      return NextResponse.json(
+        { error: 'Request body must be a valid JSON object' },
+        { status: 400 }
+      );
+    }
+
     const validation = updateServiceSchema.safeParse(data);
 
     if (!validation.success) {
+      console.error('Validation failed:', validation.error.flatten().fieldErrors);
       return NextResponse.json(
         { error: validation.error.flatten().fieldErrors },
         { status: 400 }

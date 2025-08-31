@@ -29,9 +29,11 @@ export async function GET(req: NextRequest) {
 
     // Handle query parameters
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status')?.split(',') as BlogStatus[] | undefined;
+    const statusParam = searchParams.get('status');
+    const status = statusParam && statusParam !== 'all' ? statusParam.split(',') as BlogStatus[] : undefined;
     const authorId = searchParams.get('authorId') || undefined;
-    const categoryId = searchParams.get('categoryId') || undefined;
+    const categoryIdParam = searchParams.get('categoryId');
+    const categoryId = categoryIdParam && categoryIdParam !== 'all' ? categoryIdParam : undefined;
     const tagId = searchParams.get('tagId') || undefined;
     const search = searchParams.get('search') || undefined;
     const page = parseInt(searchParams.get('page') || '1');

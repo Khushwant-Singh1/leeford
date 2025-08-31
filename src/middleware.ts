@@ -1,16 +1,16 @@
 // middleware.ts
 
-import { auth } from "@/lib/auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export default auth((req: { auth?: any; nextUrl?: any; }) => {
+export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   
-  const isLoggedIn = !!req.auth;
+  // Get the token from the request
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   
-  // In NextAuth v5, the user role might be stored differently
-  // Let's check both token.role and user.role
-  const userRole = req.auth?.user?.role || req.auth?.token?.role || req.auth?.role;
+  const isLoggedIn = !!token;
+  const userRole = token?.role;
 
   // Define protected routes and their required roles
   const protectedRoutes: Record<string, string[]> = {
@@ -26,21 +26,29 @@ export default auth((req: { auth?: any; nextUrl?: any; }) => {
   if (protectedPath) {
     if (!isLoggedIn) {
       // Redirect unauthenticated users to the login page
-      return NextResponse.redirect(new URL("/login", nextUrl));
+      const loginUrl = new URL("/login", nextUrl.origin);
+      loginUrl.searchParams.set("callbackUrl", nextUrl.pathname + nextUrl.search);
+      return NextResponse.redirect(loginUrl);
     }
 
     const requiredRoles = protectedRoutes[protectedPath];
     
-    if (!requiredRoles.includes(userRole)) {
+    if (userRole && !requiredRoles.includes(userRole as string)) {
       // Redirect users without the required role to an unauthorized page
       return NextResponse.redirect(new URL("/unauthorized", nextUrl));
     }
   }
 
   return NextResponse.next();
-});
+}
 
 // This specifies which paths the middleware should run on.
 export const config = {
-  matcher: ["/admin/:path*", "/editor/:path*", "/profile/:path*"],
+  matcher: [
+    "/admin/:path*", 
+    "/editor/:path*", 
+    "/profile/:path*",
+    // Add API route protection
+    "/api/admin/:path*"
+  ],
 };
