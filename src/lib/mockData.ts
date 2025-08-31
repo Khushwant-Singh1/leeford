@@ -1,4 +1,5 @@
-import { ProductPerformance } from "@/components/admin/product-performance-table";
+import { ProductPerformanceTable } from "@/components/admin/product-performance-table";
+import { ProductPerformance } from "@/lib/api/productperformance";
 
 // Mock data for recent orders
 export const mockOrders = [

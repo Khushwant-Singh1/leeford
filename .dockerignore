@@ -1,20 +1,11 @@
-# Git and OS files
-.git
 .DS_Store
-
-# Node modules
-node_modules
-
-# Next.js build output and cache
-.next
 .env.local
-.env
-
-# Logs
+.git
+.next/
+.vscode/
+node_modules/
 npm-debug.log*
+README.md
 yarn-debug.log*
 yarn-error.log*
-
-# Docker files
-docker
-Dockerfile
+docker/

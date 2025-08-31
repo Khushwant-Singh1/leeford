@@ -48,6 +48,10 @@ model User {
   cart          CartItem[]
   appointments  Appointment[]
   consultations Consultation[]
+  
+  // Blog relations
+  blogPosts     BlogPost[]
+  editedPosts   BlogPost[] @relation("LastEditor")
 
   // Custom validator (needs application-level enforcement):
   // Either email or phoneNumber must be provided
@@ -214,6 +218,32 @@ model Category {
   updatedAt     DateTime         @updatedAt
 
   @@index([parentId])
+}
+
+// Service/Treatment management with hierarchical structure
+model Service {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Skin Treatments", "Advanced Facials", "Fire & Ice Facial"
+  description String?  @db.Text
+  slug        String   @unique // A URL-friendly version of the name
+  image       String?  // URL for a representative image
+  isActive    Boolean  @default(true) // To easily show/hide services
+  position    Int      @default(0)    // To control the display order
+  depth       Int      @default(0)    // Added depth for optimization
+  path        String[] // Added path for easy ancestry tracking
+
+  // The self-referencing relationship fields
+  parentId    String?  // If null, it's a top-level category (e.g., "Skin Treatments")
+  parent      Service? @relation("ServiceHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Service[] @relation("ServiceHierarchy")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([isActive])
+  @@index([depth])
+  @@unique([parentId, position]) // Ensure unique position per parent
 }
 
 // Order management
@@ -405,43 +435,95 @@ model UserDiscountUsage {
   @@index([discountId])
 }
 
-// Content Management - Blog
+// Content Management - Enhanced Blog System
+enum BlogStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
 model BlogPost {
   id               String        @id @default(uuid())
   title            String
   slug             String        @unique
-  content          String        @db.Text
-  shortDescription String?
-  image            String?
-  author           String
-  tags             BlogTag[]
+  content          Json          // Tiptap JSON content
+  excerpt          String?       @db.Text
+  featuredImage    String?
+  status           BlogStatus    @default(DRAFT)
+  publishedAt      DateTime?
+  author           User          @relation(fields: [authorId], references: [id])
+  authorId         String
   category         BlogCategory? @relation(fields: [categoryId], references: [id])
   categoryId       String?
-  status           ContentStatus @default(DRAFT)
+  tags             BlogTag[]
+  readingTime      Int?          // Estimated reading time in minutes
+  views            Int           @default(0)
+  isLocked         Boolean       @default(false) // For concurrent editing protection
+  lockedBy         String?       // User ID who locked the post
+  lockedAt         DateTime?     // When the post was locked
+  
+  // SEO fields
   seoTitle         String?
   seoDescription   String?       @db.Text
-  internalNotes    String?       @db.Text
+  
+  // Version control
+  version          Int           @default(1)
+  lastEditedBy     User?         @relation("LastEditor", fields: [lastEditedById], references: [id])
+  lastEditedById   String?
+  
+  // Auto-save drafts
+  autosaveDraft    Json?         // Stores auto-saved content
+  autosavedAt      DateTime?
+  
+  // Analytics relation
+  analytics        BlogAnalytics[]
+  
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
+  @@index([authorId])
   @@index([categoryId])
   @@index([status])
+  @@index([publishedAt])
+  @@index([slug])
 }
 
 model BlogCategory {
-  id        String     @id @default(uuid())
-  name      String     @unique
-  posts     BlogPost[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id          String     @id @default(uuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?    @db.Text
+  color       String?    // Hex color for UI
+  posts       BlogPost[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model BlogTag {
   id        String     @id @default(uuid())
   name      String     @unique
+  slug      String     @unique
+  color     String?    // Hex color for UI
   posts     BlogPost[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+}
+
+// Blog analytics
+model BlogAnalytics {
+  id         String   @id @default(uuid())
+  postId     String
+  post       BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  event      String   // 'view', 'share', 'like', etc.
+  userAgent  String?
+  ipAddress  String?
+  referrer   String?
+  createdAt  DateTime @default(now())
+
+  @@index([postId])
+  @@index([event])
+  @@index([createdAt])
 }
 
 // Content Management - Testimonials

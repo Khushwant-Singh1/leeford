@@ -2,9 +2,10 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Search, Heart, ShoppingBag, User, Menu, X } from "lucide-react"
-import { useCart } from "../context/cart-context"
-import MiniCart from "@/components/mini-cart"
+import { Search, Heart, ShoppingBag, User, Menu, X, LogOut } from "lucide-react"
+import { useCart } from "@/context/cart-context"
+import MiniCart from "./mini-cart"
+import { useSession, signOut } from "next-auth/react"
 
 export default function Navbar() {
   const cartContext = useCart()
@@ -12,6 +13,8 @@ export default function Navbar() {
   const cartCount = cartContext?.cartCount || 0
   const removeFromCart = cartContext?.removeFromCart || ((id: string) => {})
   const updateQuantity = cartContext?.updateQuantity || ((id: string, quantity: number) => {})
+
+  const { data: session } = useSession()
 
   const [isMiniCartOpen, setIsMiniCartOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -128,13 +131,32 @@ export default function Navbar() {
                 </span>
               )}
             </button>
-            <Link
-              href="/account/orders"
-              aria-label="Account"
-              className="focus:outline-none p-1 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <User className="h-5 w-5" />
-            </Link>
+            {session ? (
+              <>
+                <Link
+                  href="/account/orders"
+                  aria-label="Account"
+                  className="focus:outline-none p-1 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <User className="h-5 w-5" />
+                </Link>
+                <button
+                  aria-label="Sign Out"
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  className="focus:outline-none p-1 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <LogOut className="h-5 w-5" />
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                aria-label="Sign In"
+                className="focus:outline-none p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <User className="h-5 w-5" />
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -196,4 +218,3 @@ export default function Navbar() {
     </header>
   )
 }
-

@@ -41,4 +41,31 @@ export const sendOtpEmail = async (to: string, otp: string) => {
   }
 };
 
-// You can keep or remove the old sendVerificationEmail function
+/**
+ * Sends a password reset email to a user.
+ * @param to The recipient's email address.
+ * @param token The password reset token.
+ */
+export const sendPasswordResetEmail = async (to: string, token: string) => {
+  const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`; // Assuming NEXTAUTH_URL is set
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: to,
+    subject: 'Password Reset Request',
+    html: `
+      <h1>Password Reset Request</h1>
+      <p>You have requested a password reset. Please click the link below to reset your password:</p>
+      <p><a href="${resetLink}">Reset Password</a></p>
+      <p>This link is valid for 1 hour. If you did not request this, please ignore this email.</p>
+    `,
+    text: `You have requested a password reset. Please use the following link to reset your password: ${resetLink}. This link is valid for 1 hour. If you did not request this, please ignore this email.`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('✅ Password reset email sent to:', to);
+  } catch (error) {
+    console.error('💥 Failed to send password reset email:', error);
+    throw new Error('Could not send password reset email.');
+  }
+};

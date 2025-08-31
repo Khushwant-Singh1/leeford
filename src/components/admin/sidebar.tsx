@@ -21,7 +21,12 @@ import {
   LogOut,
   Percent,
   Settings,
-  Activity
+  Activity,
+  FileText,
+  PenTool,
+  BookOpen,
+  Wrench,
+  Cog
 } from "lucide-react"
 
 export function Sidebar() {
@@ -81,6 +86,36 @@ export function Sidebar() {
             icon={<Layers size={18} />}
             label="Inventory"
             active={isActive("/admin/products/inventory")}
+          />
+        </div>
+      </div>
+
+      <div className="p-4">
+        <div className="text-sm text-gray-500 mb-2">Services</div>
+        <div className="space-y-1">
+          <NavItem
+            href="/admin/services"
+            icon={<Wrench size={18} />}
+            label="All Services"
+            active={isActive("/admin/services")}
+          />
+          <NavItem
+            href="/admin/services/add"
+            icon={<Plus size={18} />}
+            label="Add Service"
+            active={isActive("/admin/services/add")}
+          />
+          <NavItem
+            href="/admin/services/categories"
+            icon={<Tag size={18} />}
+            label="Service Categories"
+            active={isActive("/admin/services/categories")}
+          />
+          <NavItem
+            href="/admin/services/analytics"
+            icon={<BarChart2 size={18} />}
+            label="Service Analytics"
+            active={isActive("/admin/services/analytics")}
           />
         </div>
       </div>
@@ -147,6 +182,30 @@ export function Sidebar() {
             icon={<MessageSquare size={18} />}
             label="Contacts"
             active={isActive("/admin/contacts")}
+          />
+        </div>
+      </div>
+
+      <div className="p-4">
+        <div className="text-sm text-gray-500 mb-2">Content</div>
+        <div className="space-y-1">
+          <NavItem
+            href="/admin/blog"
+            icon={<FileText size={18} />}
+            label="Blog Posts"
+            active={isActive("/admin/blog")}
+          />
+          <NavItem
+            href="/admin/blog/new"
+            icon={<PenTool size={18} />}
+            label="Write Post"
+            active={pathname === "/admin/blog/new"}
+          />
+          <NavItem
+            href="/admin/blog/categories"
+            icon={<BookOpen size={18} />}
+            label="Categories"
+            active={isActive("/admin/blog/categories")}
           />
         </div>
       </div>

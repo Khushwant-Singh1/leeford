@@ -4,7 +4,8 @@ import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { timingSafeEqual, createHash } from 'crypto';
 import { getOtpRateLimiter } from '@/lib/rate-limiter';
-import { logSecurityEvent } from '@/lib/security-logger';
+import { SECURITY_EVENTS, AuthLogger, logSecurityEventWithRequest } from '@/lib/security-logger';
+import { SecurityEventLevel } from '@prisma/client';
 
 // Schema validation
 const VerifyOtpSchema = z.object({
@@ -42,12 +43,18 @@ export async function POST(req: Request) {
     const { success, limit, reset, remaining } = await ratelimiter.limit(`otp:${normalizedEmail}`);
     
     if (!success) {
-      await logSecurityEvent('OTP_RATE_LIMIT_EXCEEDED', { 
-        email: normalizedEmail,
-        limit,
-        reset,
-        remaining 
-      });
+      await logSecurityEventWithRequest(
+        req,
+        SECURITY_EVENTS.RATE_LIMIT_EXCEEDED,
+        { 
+          email: normalizedEmail,
+          limit,
+          reset,
+          remaining,
+          context: 'otp_verification'
+        },
+        SecurityEventLevel.WARN
+      );
       
       return NextResponse.json(
         { error: OtpError.RateLimited },
@@ -88,16 +95,31 @@ export async function POST(req: Request) {
       });
 
       if (!verificationCode) {
-        await logSecurityEvent('OTP_NOT_FOUND', { email: normalizedEmail });
+        await logSecurityEventWithRequest(
+          req,
+          SECURITY_EVENTS.AUTH_OTP_FAILED,
+          { 
+            email: normalizedEmail,
+            reason: 'no_valid_otp_found'
+          },
+          SecurityEventLevel.WARN
+        );
         throw new Error(OtpError.NoValidOtp);
       }
 
       // Check if OTP has exceeded maximum attempts
       if (verificationCode.attempts >= 5) {
-        await logSecurityEvent('OTP_MAX_ATTEMPTS_EXCEEDED', { 
-          email: normalizedEmail,
-          verificationCodeId: verificationCode.id 
-        });
+        await logSecurityEventWithRequest(
+          req,
+          SECURITY_EVENTS.AUTH_OTP_FAILED,
+          { 
+            email: normalizedEmail,
+            verificationCodeId: verificationCode.id,
+            reason: 'max_attempts_exceeded',
+            attempts: verificationCode.attempts
+          },
+          SecurityEventLevel.ERROR
+        );
         
         // Mark as used to prevent further attempts
         await tx.verificationCode.update({
@@ -119,11 +141,7 @@ export async function POST(req: Request) {
           data: { attempts: { increment: 1 } },
         });
 
-        await logSecurityEvent('OTP_INVALID_ATTEMPT', { 
-          email: normalizedEmail,
-          verificationCodeId: verificationCode.id,
-          attemptNumber: verificationCode.attempts + 1
-        });
+        await AuthLogger.otpFailed(normalizedEmail, verificationCode.attempts + 1, req);
         
         throw new Error(OtpError.InvalidAttempt);
       }
@@ -141,10 +159,7 @@ export async function POST(req: Request) {
         }),
       ]);
 
-      await logSecurityEvent('OTP_VERIFICATION_SUCCESS', { 
-        userId: updatedUser.id,
-        email: normalizedEmail 
-      });
+      await AuthLogger.otpVerified(updatedUser.id, normalizedEmail, req);
 
       return updatedUser;
     });
@@ -197,9 +212,15 @@ export async function POST(req: Request) {
     }
 
     // Generic error for unknown cases
-    await logSecurityEvent('OTP_VERIFICATION_ERROR', { 
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    await logSecurityEventWithRequest(
+      req,
+      SECURITY_EVENTS.SYSTEM_ERROR,
+      { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        context: 'otp_verification'
+      },
+      SecurityEventLevel.ERROR
+    );
     
     return NextResponse.json(
       { error: 'An unexpected error occurred during verification.' },

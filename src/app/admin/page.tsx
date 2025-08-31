@@ -1,10 +1,19 @@
+import { redirect } from 'next/navigation';
+import { getAuthSession } from '@/lib/auth';
+import { Role } from '@prisma/client';
 import { DashboardHeader } from "@/components/admin/dashboard-header";
 import { ProductOverview } from "@/components/admin/product-overview";
 import { RecentOrders } from "@/components/admin/recent-orders";
 import { TopSellingProducts } from "@/components/admin/top-selling-products";
 import { InventoryAlerts } from "@/components/admin/inventory-alerts";
 
-export default function AdminDashboard() {
+export default async function AdminDashboard() {
+  const session = await getAuthSession();
+
+  if (!session || session.user.role !== Role.ADMIN) {
+    redirect('/unauthorized');
+  }
+
   return (
       <div className="p-6">
         <DashboardHeader />
