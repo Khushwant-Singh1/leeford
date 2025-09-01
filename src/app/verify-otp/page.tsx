@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { VerifyOtpForm } from '@/components/verify-otp-form'; // Adjust path
+import { VerifyOtpForm } from '@/components/verify-otp-form';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
