@@ -4,6 +4,10 @@ import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
+import ListItem from '@tiptap/extension-list-item';
+import {TextStyle} from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import Highlight from '@tiptap/extension-highlight';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { debounce } from 'lodash';
 import { Button } from '@/components/ui/button';
@@ -33,7 +37,10 @@ import {
   Clock,
   Users,
   Lock,
-  Unlock
+  Unlock,
+  X,
+  Plus,
+  Tag
 } from 'lucide-react';
 
 interface BlogEditorProps {
@@ -78,6 +85,9 @@ export function BlogEditor({
   const [wordCount, setWordCount] = useState(0);
   const [readingTime, setReadingTime] = useState(0);
   const [showSeoSettings, setShowSeoSettings] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [showCreateTag, setShowCreateTag] = useState(false);
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -88,7 +98,29 @@ export function BlogEditor({
         heading: {
           levels: [1, 2, 3],
         },
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+        listItem: {
+          HTMLAttributes: {
+            class: 'my-list-item',
+          },
+        },
+        blockquote: {
+          HTMLAttributes: {
+            class: 'my-blockquote',
+          },
+        },
       }),
+      ListItem,
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
       Image.configure({
         inline: true,
         allowBase64: true,
@@ -96,6 +128,9 @@ export function BlogEditor({
       Link.configure({
         openOnClick: false,
         autolink: true,
+        HTMLAttributes: {
+          class: 'text-primary underline underline-offset-[3px]',
+        },
       }),
       Placeholder.configure({
         placeholder: 'Start writing your story...',
@@ -294,8 +329,59 @@ export function BlogEditor({
     );
   };
 
+  // Remove tag
+  const handleRemoveTag = (tagId: string) => {
+    setSelectedTags(prev => prev.filter(id => id !== tagId));
+  };
+
+  // Create new tag
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return;
+    
+    setIsCreatingTag(true);
+    try {
+      const response = await fetch('/api/admin/blog/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTagName.trim() }),
+      });
+
+      if (response.ok) {
+        const newTag = await response.json();
+        // Add to local tags list
+        const newTags = [...tags, newTag];
+        // Update the tags prop if possible (this would need to be passed from parent)
+        
+        // Auto-select the new tag
+        setSelectedTags(prev => [...prev, newTag.id]);
+        setNewTagName('');
+        setShowCreateTag(false);
+        
+        toast({
+          title: 'Success',
+          description: 'Tag created successfully',
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: 'Error',
+          description: error.error || 'Failed to create tag',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to create tag',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreatingTag(false);
+    }
+  };
+
   const getSelectedTagNames = () => {
-    return tags.filter(tag => selectedTags.includes(tag.id)).map(tag => tag.name);
+    return tags.filter(tag => selectedTags.includes(tag.id));
   };
 
   if (!editor) {
@@ -416,31 +502,102 @@ export function BlogEditor({
       {/* Tags */}
       <div>
         <label className="text-sm font-medium">Tags</label>
-        <div className="mt-2 space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {getSelectedTagNames().map(tagName => (
-              <Badge key={tagName} variant="secondary">
-                {tagName}
-              </Badge>
-            ))}
-          </div>
+        <div className="mt-2 space-y-3">
+          {/* Selected Tags */}
+          {getSelectedTagNames().length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {getSelectedTagNames().map(tag => (
+                <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
+                  {tag.name}
+                  {!readOnly && (
+                    <X 
+                      className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                      onClick={() => handleRemoveTag(tag.id)}
+                    />
+                  )}
+                </Badge>
+              ))}
+            </div>
+          )}
+          
+          {/* Tag Selection */}
           {!readOnly && (
-            <Select onValueChange={handleTagToggle}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Add tags..." />
-              </SelectTrigger>
-              <SelectContent>
-                {tags.map(tag => (
-                  <SelectItem 
-                    key={tag.id} 
-                    value={tag.id}
-                    disabled={selectedTags.includes(tag.id)}
-                  >
-                    {tag.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select onValueChange={handleTagToggle}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Add existing tags..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tags
+                    .filter(tag => !selectedTags.includes(tag.id))
+                    .map(tag => (
+                      <SelectItem key={tag.id} value={tag.id}>
+                        <div className="flex items-center gap-2">
+                          <Tag className="h-3 w-3" />
+                          {tag.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  {tags.filter(tag => !selectedTags.includes(tag.id)).length === 0 && (
+                    <SelectItem value="no-tags" disabled>
+                      No more tags available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCreateTag(!showCreateTag)}
+                className="flex items-center gap-1"
+              >
+                <Plus className="h-3 w-3" />
+                New Tag
+              </Button>
+            </div>
+          )}
+          
+          {/* Create New Tag */}
+          {showCreateTag && !readOnly && (
+            <div className="flex gap-2 p-3 border rounded-lg bg-muted/30">
+              <Input
+                placeholder="Enter tag name..."
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleCreateTag();
+                  }
+                  if (e.key === 'Escape') {
+                    setShowCreateTag(false);
+                    setNewTagName('');
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCreateTag}
+                disabled={!newTagName.trim() || isCreatingTag}
+              >
+                {isCreatingTag ? 'Creating...' : 'Create'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowCreateTag(false);
+                  setNewTagName('');
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -572,7 +729,24 @@ export function BlogEditor({
 
       {/* Editor */}
       <div className="min-h-[400px] p-4 border rounded-lg focus-within:ring-2 focus-within:ring-ring">
-        <EditorContent editor={editor} className="prose prose-lg max-w-none" />
+        <EditorContent 
+          editor={editor} 
+          className="prose prose-lg max-w-none
+            [&_.ProseMirror]:outline-none
+            [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4
+            [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:mb-3
+            [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-medium [&_.ProseMirror_h3]:mb-2
+            [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:ml-6 [&_.ProseMirror_ul]:my-4
+            [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:ml-6 [&_.ProseMirror_ol]:my-4
+            [&_.ProseMirror_li]:my-1
+            [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-muted-foreground [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:my-4
+            [&_.ProseMirror_p]:my-2
+            [&_.ProseMirror_strong]:font-bold
+            [&_.ProseMirror_em]:italic
+            [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded
+            [&_.ProseMirror_a]:text-primary [&_.ProseMirror_a]:underline
+          "
+        />
       </div>
 
       {/* Excerpt */}
