@@ -80,6 +80,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // If you return null, then an error will be displayed to the user.
             return null;
           }
+          if (!user.isVerified) {
+            console.log('❌ User account is not verified:', user.email);
+            // Throw a custom error that the frontend can identify.
+            throw new Error("USER_NOT_VERIFIED"); 
+          }
 
           console.log('✅ User found:', {
             id: user.id,
@@ -113,11 +118,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           
           console.log('✅ Returning user object:', authUser);
           return authUser;
-        } catch (error) {
-          console.error('💥 Error in authorize function:', error);
+        } catch (error: any) {
+          console.error('💥 Auth error:', error);
+          // Pass custom error to frontend
+          if (error.message === 'USER_NOT_VERIFIED') {
+            throw error; // Preserve custom error
+          }
           return null;
         }
-      },
+      }
     }),
   ],
 

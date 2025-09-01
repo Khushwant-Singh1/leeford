@@ -1,77 +1,109 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { PasswordInput } from '@/components/password-input';
 
 const formSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  emailOrPhone: z.string().min(1, 'Email or phone number is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
+    defaultValues: { emailOrPhone: '', password: '' },
   });
+
+  // Check for verification success message
+  useEffect(() => {
+    if (searchParams.get('verified') === 'true') {
+      toast.success('Account verified successfully! You can now log in.');
+      const email = searchParams.get('email');
+      if (email) {
+        form.setValue('emailOrPhone', decodeURIComponent(email));
+      }
+    }
+  }, [searchParams, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    setError(null);
     try {
       const result = await signIn('credentials', {
         redirect: false,
-        emailOrPhone: values.email,
+        emailOrPhone: values.emailOrPhone,
         password: values.password,
       });
 
-      if (result?.error) {
-        setError(result.error);
-      } else {
-        router.push('/'); // Redirect to home page or dashboard on successful login
+      if (result?.error === "USER_NOT_VERIFIED") {
+        // Trigger OTP resend and redirect
+        toast.info('Your account is not verified. Sending a new OTP...');
+        
+        const resendResponse = await fetch('/api/auth/resend-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: values.emailOrPhone }),
+        });
+        
+        if (resendResponse.ok) {
+          toast.success('OTP sent! Please check your email.');
+          router.push(`/verify-otp?email=${encodeURIComponent(values.emailOrPhone)}&resent=true`);
+        } else {
+          const errorData = await resendResponse.json();
+          toast.error(errorData.error || 'Failed to send OTP');
+        }
+      } else if (result?.error) {
+        toast.error('Invalid credentials');
+      } else if (result?.ok) {
+        toast.success('Login successful!');
+        // Check if user has admin role and redirect accordingly
+        router.push('/admin');
+        router.refresh(); // Refresh to update session state
       }
     } catch (err) {
-      setError('An unexpected error occurred.');
+      console.error('Login error:', err);
+      toast.error('An error occurred during login');
     } finally {
       setIsLoading(false);
     }
   }
 
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+    <div className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Enter your email and password to sign in</CardDescription>
+        <CardHeader className="text-center">
+          {/* Add your logo here */}
+          {/* <img src="/logo.svg" alt="Leeford Logo" className="w-24 mx-auto mb-4" /> */}
+          <CardTitle className="text-2xl font-bold">Welcome Back!</CardTitle>
+          <CardDescription>Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="emailOrPhone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Email or Phone Number</FormLabel>
                     <FormControl>
-                      <Input placeholder="m@example.com" type="email" {...field} />
+                      <Input placeholder="name@example.com or +1234567890" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -82,38 +114,54 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <div className="flex items-center justify-between">
+                      <FormLabel>Password</FormLabel>
+                      <Link href="/reset-password" className="text-sm text-blue-600 hover:underline">
+                        Forgot Password?
+                      </Link>
+                    </div>
                     <FormControl>
-                      <Input type="password" {...field} />
+                      <PasswordInput placeholder="••••••••" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              {error && <p className="text-red-500 text-sm">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Please wait
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Please wait
                   </>
                 ) : (
-                  'Login'
+                  'Sign In'
                 )}
               </Button>
-              <div className="text-center text-sm">
-                Don't have an account?{' '}
-                <Link href="/register" className="text-blue-600 hover:underline">
-                  Register
-                </Link>
-              </div>
-              <div className="text-center text-sm">
-                <Link href="/forgot-password" className="text-blue-600 hover:underline">
-                  Forgot Password?
-                </Link>
-              </div>
             </form>
           </Form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-muted-foreground dark:bg-slate-950">
+                Or continue with
+              </span>
+            </div>
+          </div>
+          
+          {/* Add Social Login Buttons here if you have them */}
+          <Button variant="outline" className="w-full">
+             {/* <IconGoogle className="mr-2 h-4 w-4" /> */}
+             Sign in with Google
+          </Button>
+          
+          <div className="mt-4 text-center text-sm">
+            Don&apos;t have an account?{' '}
+            <Link href="/register" className="font-semibold text-blue-600 hover:underline">
+              Register here
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
