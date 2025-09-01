@@ -72,7 +72,7 @@ export default function LoginPage() {
       } else if (result?.ok) {
         toast.success('Login successful!');
         // Check if user has admin role and redirect accordingly
-        router.push('/admin');
+        router.push('/profile');
         router.refresh(); // Refresh to update session state
       }
     } catch (err) {
@@ -116,7 +116,7 @@ export default function LoginPage() {
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>Password</FormLabel>
-                      <Link href="/reset-password" className="text-sm text-blue-600 hover:underline">
+                      <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline">
                         Forgot Password?
                       </Link>
                     </div>
