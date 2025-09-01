@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { useState, useCallback } from "react"
-import { Button } from "@/components/ui/button"
-import { useDropzone } from "react-dropzone"
-import { Upload, X } from "lucide-react"
-import { Progress } from "@/components/ui/progress"
+import { useState, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { useDropzone } from "react-dropzone";
+import { Upload, X } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface UploadPopupProps {
   onSuccess: (file: File) => void;
@@ -44,7 +44,9 @@ export default function UploadPopup({ onSuccess, onClose }: UploadPopupProps) {
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-            isDragActive ? "border-primary bg-primary/10" : "border-gray-300 hover:border-primary"
+            isDragActive
+              ? "border-primary bg-primary/10"
+              : "border-gray-300 hover:border-primary"
           }`}
         >
           <input {...getInputProps()} />
@@ -56,7 +58,9 @@ export default function UploadPopup({ onSuccess, onClose }: UploadPopupProps) {
           ) : isDragActive ? (
             <p className="mt-2 text-sm text-gray-600">Drop the file here ...</p>
           ) : (
-            <p className="mt-2 text-sm text-gray-600">Drag & drop a file here, or click to select</p>
+            <p className="mt-2 text-sm text-gray-600">
+              Drag & drop a file here, or click to select
+            </p>
           )}
         </div>
         <p className="mt-2 text-xs text-gray-500 text-center">
@@ -69,5 +73,5 @@ export default function UploadPopup({ onSuccess, onClose }: UploadPopupProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

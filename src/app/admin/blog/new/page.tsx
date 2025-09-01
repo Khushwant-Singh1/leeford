@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { BlogEditor } from '@/components/admin/blog-editor';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { BlogEditor } from "@/components/admin/blog-editor";
+import { useToast } from "@/hooks/use-toast";
 
 export default function NewBlogPostPage() {
   const router = useRouter();
@@ -17,8 +17,8 @@ export default function NewBlogPostPage() {
     const fetchData = async () => {
       try {
         const [categoriesResponse, tagsResponse] = await Promise.all([
-          fetch('/api/admin/blog/categories'),
-          fetch('/api/admin/blog/tags'),
+          fetch("/api/admin/blog/categories"),
+          fetch("/api/admin/blog/tags"),
         ]);
 
         if (categoriesResponse.ok) {
@@ -30,11 +30,11 @@ export default function NewBlogPostPage() {
           const tagsData = await tagsResponse.json();
           setTags(tagsData);
         }
-      } catch (error) {
+      } catch (_error) {
         toast({
-          title: 'Error',
-          description: 'Failed to load categories and tags',
-          variant: 'destructive',
+          title: "Error",
+          description: "Failed to load categories and tags",
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
@@ -46,8 +46,8 @@ export default function NewBlogPostPage() {
 
   const handleSave = (savedPost: any) => {
     toast({
-      title: 'Success',
-      description: 'Post created successfully',
+      title: "Success",
+      description: "Post created successfully",
     });
     router.push(`/admin/blog/edit/${savedPost.id}`);
   };
@@ -56,11 +56,5 @@ export default function NewBlogPostPage() {
     return <div className="container mx-auto py-8">Loading...</div>;
   }
 
-  return (
-    <BlogEditor
-      categories={categories}
-      tags={tags}
-      onSave={handleSave}
-    />
-  );
+  return <BlogEditor categories={categories} tags={tags} onSave={handleSave} />;
 }

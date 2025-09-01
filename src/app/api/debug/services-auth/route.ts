@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Build where clause
-    let where: any = {};
+    const where: any = {};
     
     // Handle status filter
     if (status === 'active') {

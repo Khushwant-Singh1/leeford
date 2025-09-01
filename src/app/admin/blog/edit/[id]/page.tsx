@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { BlogEditor } from '@/components/admin/blog-editor';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { BlogEditor } from "@/components/admin/blog-editor";
+import { useToast } from "@/hooks/use-toast";
 
 interface BlogPost {
   title: string;
   content: string;
   excerpt?: string;
   featuredImage?: string;
-  status: 'DRAFT' | 'PUBLISHED';
+  status: "DRAFT" | "PUBLISHED";
   categoryId?: string;
   tagIds: string[];
   seoTitle?: string;
@@ -33,7 +33,7 @@ export default function EditBlogPostPage() {
   const params = useParams();
   const postId = params.id as string;
   const { toast } = useToast();
-  
+
   const [post, setPost] = useState<BlogPost | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -43,11 +43,12 @@ export default function EditBlogPostPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [postResponse, categoriesResponse, tagsResponse] = await Promise.all([
-          fetch(`/api/admin/blog/posts/${postId}`),
-          fetch('/api/admin/blog/categories'),
-          fetch('/api/admin/blog/tags'),
-        ]);
+        const [postResponse, categoriesResponse, tagsResponse] =
+          await Promise.all([
+            fetch(`/api/admin/blog/posts/${postId}`),
+            fetch("/api/admin/blog/categories"),
+            fetch("/api/admin/blog/tags"),
+          ]);
 
         if (postResponse.ok) {
           const postData = await postResponse.json();
@@ -64,9 +65,9 @@ export default function EditBlogPostPage() {
           });
         } else {
           toast({
-            title: 'Error',
-            description: 'Post not found',
-            variant: 'destructive',
+            title: "Error",
+            description: "Post not found",
+            variant: "destructive",
           });
         }
 
@@ -79,11 +80,11 @@ export default function EditBlogPostPage() {
           const tagsData = await tagsResponse.json();
           setTags(tagsData);
         }
-      } catch (error) {
+      } catch (_error) {
         toast({
-          title: 'Error',
-          description: 'Failed to load post data',
-          variant: 'destructive',
+          title: "Error",
+          description: "Failed to load post data",
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
@@ -95,10 +96,10 @@ export default function EditBlogPostPage() {
     }
   }, [postId, toast]);
 
-  const handleSave = (savedPost: any) => {
+  const handleSave = (_savedPost: any) => {
     toast({
-      title: 'Success',
-      description: 'Post updated successfully',
+      title: "Success",
+      description: "Post updated successfully",
     });
   };
 

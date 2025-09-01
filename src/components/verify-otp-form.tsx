@@ -1,32 +1,48 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
-import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 
 const OTPSchema = z.object({
-  otp: z.string().regex(/^\d{6}$/, { message: 'OTP must be 6 digits.' })
-
+  otp: z.string().regex(/^\d{6}$/, { message: "OTP must be 6 digits." }),
 });
 
 export function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get('email');
+  const email = searchParams.get("email");
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  
+
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
 
@@ -48,7 +64,7 @@ export function VerifyOtpForm() {
 
   const form = useForm<z.infer<typeof OTPSchema>>({
     resolver: zodResolver(OTPSchema),
-    defaultValues: { otp: '' },
+    defaultValues: { otp: "" },
   });
 
   // --- Form Submission Handler ---
@@ -60,25 +76,28 @@ export function VerifyOtpForm() {
     setSuccessMessage(null);
 
     try {
-      const response = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp: values.otp }),
-        credentials: 'include',
+        credentials: "include",
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'OTP verification failed');
+      if (!response.ok)
+        throw new Error(data.error || "OTP verification failed");
 
       // Show success message
-      setSuccessMessage('Verification successful! Please login with your credentials.');
-      
+      setSuccessMessage(
+        "Verification successful! Please login with your credentials."
+      );
+
       // Redirect to login page with verification success indicator
       setTimeout(() => {
         router.push(`/login?verified=true&email=${encodeURIComponent(email)}`);
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      setError(err.message || "An unexpected error occurred.");
       form.reset(); // Clear input on error
     } finally {
       setIsLoading(false);
@@ -88,21 +107,21 @@ export function VerifyOtpForm() {
   // --- Resend OTP Handler ---
   async function handleResendOtp() {
     if (!email || !canResend) return;
-    
+
     setCanResend(false);
     setError(null);
     setSuccessMessage(null);
-    
+
     try {
-      await fetch('/api/auth/resend-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/auth/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      setSuccessMessage('A new OTP has been sent to your email.');
+      setSuccessMessage("A new OTP has been sent to your email.");
       setCountdown(60); // Reset timer
     } catch (err: any) {
-      setError(err.message || 'Failed to resend OTP.');
+      setError(err.message || "Failed to resend OTP.");
       setCanResend(true); // Allow user to try again if it fails
     }
   }
@@ -113,10 +132,13 @@ export function VerifyOtpForm() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader>
           <CardTitle className="text-destructive">Error</CardTitle>
-          <CardDescription>No email address was provided. Please return to the registration page and try again.</CardDescription>
+          <CardDescription>
+            No email address was provided. Please return to the registration
+            page and try again.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => router.push('/register')} className="w-full">
+          <Button onClick={() => router.push("/register")} className="w-full">
             Go to Registration
           </Button>
         </CardContent>
@@ -160,8 +182,8 @@ export function VerifyOtpForm() {
                     <FormLabel className="sr-only">One-Time Password</FormLabel>
                     <FormControl>
                       <div className="flex justify-center">
-                        <InputOTP 
-                          maxLength={6} 
+                        <InputOTP
+                          maxLength={6}
                           {...field}
                           onComplete={form.handleSubmit(onSubmit)} // Auto-submit on completion
                         >
@@ -182,15 +204,24 @@ export function VerifyOtpForm() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...</> : 'Verify Account'}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...
+                </>
+              ) : (
+                "Verify Account"
+              )}
             </Button>
           </form>
         </Form>
         <div className="mt-4 text-center text-sm">
           {canResend ? (
             <>
-              Didn't receive the code?{' '}
-              <button onClick={handleResendOtp} className="font-medium underline hover:text-primary">
+              Didn't receive the code?{" "}
+              <button
+                onClick={handleResendOtp}
+                className="font-medium underline hover:text-primary"
+              >
                 Resend
               </button>
             </>

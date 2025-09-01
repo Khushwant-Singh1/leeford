@@ -1,8 +1,8 @@
-"use client"
-import { useState } from "react"
-import type React from "react"
+"use client";
+import { useState } from "react";
+import type React from "react";
 
-import { ChevronDown } from "lucide-react"
+import { ChevronDown } from "lucide-react";
 
 export default function AddressForm() {
   const [formData, setFormData] = useState({
@@ -14,7 +14,7 @@ export default function AddressForm() {
     pincode: "",
     state: "",
     isDefault: false,
-  })
+  });
 
   const [errors, setErrors] = useState({
     name: "",
@@ -24,77 +24,79 @@ export default function AddressForm() {
     city: "",
     pincode: "",
     state: "",
-  })
+  });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
 
     // Clear error when user types
     if (errors[name as keyof typeof errors]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }))
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
-  }
+  };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, isDefault: e.target.checked }))
-  }
+    setFormData((prev) => ({ ...prev, isDefault: e.target.checked }));
+  };
 
   const validateForm = () => {
-    let valid = true
-    const newErrors = { ...errors }
+    let valid = true;
+    const newErrors = { ...errors };
 
     if (!formData.name.trim()) {
-      newErrors.name = "Name is required"
-      valid = false
+      newErrors.name = "Name is required";
+      valid = false;
     }
 
     if (!formData.mobile.trim()) {
-      newErrors.mobile = "Mobile number is required"
-      valid = false
+      newErrors.mobile = "Mobile number is required";
+      valid = false;
     } else if (!/^\d{10}$/.test(formData.mobile.trim())) {
-      newErrors.mobile = "Please enter a valid 10-digit mobile number"
-      valid = false
+      newErrors.mobile = "Please enter a valid 10-digit mobile number";
+      valid = false;
     }
 
     if (!formData.flat.trim()) {
-      newErrors.flat = "Flat/House no. is required"
-      valid = false
+      newErrors.flat = "Flat/House no. is required";
+      valid = false;
     }
 
     if (!formData.area.trim()) {
-      newErrors.area = "Area/Street is required"
-      valid = false
+      newErrors.area = "Area/Street is required";
+      valid = false;
     }
 
     if (!formData.city) {
-      newErrors.city = "Please select a city"
-      valid = false
+      newErrors.city = "Please select a city";
+      valid = false;
     }
 
     if (!formData.pincode.trim()) {
-      newErrors.pincode = "Pincode is required"
-      valid = false
+      newErrors.pincode = "Pincode is required";
+      valid = false;
     } else if (!/^\d{6}$/.test(formData.pincode.trim())) {
-      newErrors.pincode = "Please enter a valid 6-digit pincode"
-      valid = false
+      newErrors.pincode = "Please enter a valid 6-digit pincode";
+      valid = false;
     }
 
     if (!formData.state) {
-      newErrors.state = "Please select a state"
-      valid = false
+      newErrors.state = "Please select a state";
+      valid = false;
     }
 
-    setErrors(newErrors)
-    return valid
-  }
+    setErrors(newErrors);
+    return valid;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (validateForm()) {
       // Submit form data
-      console.log("Form submitted:", formData)
+      console.log("Form submitted:", formData);
       // Reset form after submission
       setFormData({
         name: "",
@@ -105,9 +107,9 @@ export default function AddressForm() {
         pincode: "",
         state: "",
         isDefault: false,
-      })
+      });
     }
-  }
+  };
 
   return (
     <div>
@@ -126,7 +128,9 @@ export default function AddressForm() {
               value={formData.name}
               onChange={handleChange}
               placeholder="Enter Name"
-              className={`w-full px-4 py-3 border ${errors.name ? "border-red-500" : "border-gray-300"} rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
+              className={`w-full px-4 py-3 border ${
+                errors.name ? "border-red-500" : "border-gray-300"
+              } rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
               aria-invalid={errors.name ? "true" : "false"}
               aria-describedby={errors.name ? "name-error" : undefined}
             />
@@ -148,7 +152,9 @@ export default function AddressForm() {
               value={formData.mobile}
               onChange={handleChange}
               placeholder="Enter Mobile Number"
-              className={`w-full px-4 py-3 border ${errors.mobile ? "border-red-500" : "border-gray-300"} rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
+              className={`w-full px-4 py-3 border ${
+                errors.mobile ? "border-red-500" : "border-gray-300"
+              } rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
               aria-invalid={errors.mobile ? "true" : "false"}
               aria-describedby={errors.mobile ? "mobile-error" : undefined}
             />
@@ -169,7 +175,9 @@ export default function AddressForm() {
               name="flat"
               value={formData.flat}
               onChange={handleChange}
-              className={`w-full px-4 py-3 border ${errors.flat ? "border-red-500" : "border-gray-300"} rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
+              className={`w-full px-4 py-3 border ${
+                errors.flat ? "border-red-500" : "border-gray-300"
+              } rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
               aria-invalid={errors.flat ? "true" : "false"}
               aria-describedby={errors.flat ? "flat-error" : undefined}
             />
@@ -190,7 +198,9 @@ export default function AddressForm() {
               name="area"
               value={formData.area}
               onChange={handleChange}
-              className={`w-full px-4 py-3 border ${errors.area ? "border-red-500" : "border-gray-300"} rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
+              className={`w-full px-4 py-3 border ${
+                errors.area ? "border-red-500" : "border-gray-300"
+              } rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
               aria-invalid={errors.area ? "true" : "false"}
               aria-describedby={errors.area ? "area-error" : undefined}
             />
@@ -211,7 +221,9 @@ export default function AddressForm() {
                 name="city"
                 value={formData.city}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border ${errors.city ? "border-red-500" : "border-gray-300"} rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a] appearance-none`}
+                className={`w-full px-4 py-3 border ${
+                  errors.city ? "border-red-500" : "border-gray-300"
+                } rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a] appearance-none`}
                 aria-invalid={errors.city ? "true" : "false"}
                 aria-describedby={errors.city ? "city-error" : undefined}
               >
@@ -242,7 +254,9 @@ export default function AddressForm() {
               value={formData.pincode}
               onChange={handleChange}
               placeholder="Enter Pin Code"
-              className={`w-full px-4 py-3 border ${errors.pincode ? "border-red-500" : "border-gray-300"} rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
+              className={`w-full px-4 py-3 border ${
+                errors.pincode ? "border-red-500" : "border-gray-300"
+              } rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a]`}
               aria-invalid={errors.pincode ? "true" : "false"}
               aria-describedby={errors.pincode ? "pincode-error" : undefined}
             />
@@ -263,7 +277,9 @@ export default function AddressForm() {
                 name="state"
                 value={formData.state}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border ${errors.state ? "border-red-500" : "border-gray-300"} rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a] appearance-none`}
+                className={`w-full px-4 py-3 border ${
+                  errors.state ? "border-red-500" : "border-gray-300"
+                } rounded-md focus:outline-none focus:ring-1 focus:ring-[#795d2a] appearance-none`}
                 aria-invalid={errors.state ? "true" : "false"}
                 aria-describedby={errors.state ? "state-error" : undefined}
               >
@@ -296,7 +312,10 @@ export default function AddressForm() {
                 />
               </div>
               <div className="ml-2 text-sm">
-                <label htmlFor="default-address" className="font-medium text-gray-700">
+                <label
+                  htmlFor="default-address"
+                  className="font-medium text-gray-700"
+                >
                   Use as my default address
                 </label>
               </div>
@@ -314,6 +333,5 @@ export default function AddressForm() {
         </div>
       </form>
     </div>
-  )
+  );
 }
-

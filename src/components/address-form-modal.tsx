@@ -1,25 +1,29 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddressFormModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (addressData: any) => void
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (addressData: any) => void;
 }
 
-export default function AddressFormModal({ isOpen, onClose, onSubmit }: AddressFormModalProps) {
-  const [isDefaultAddress, setIsDefaultAddress] = useState(false)
+export default function AddressFormModal({
+  isOpen,
+  onClose,
+  onSubmit,
+}: AddressFormModalProps) {
+  const [isDefaultAddress, setIsDefaultAddress] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     // Get form data
-    const formData = new FormData(e.target as HTMLFormElement)
+    const formData = new FormData(e.target as HTMLFormElement);
     const addressData = {
       name: formData.get("name"),
       mobile: formData.get("mobile"),
@@ -29,12 +33,12 @@ export default function AddressFormModal({ isOpen, onClose, onSubmit }: AddressF
       pincode: formData.get("pincode"),
       state: formData.get("state"),
       isDefault: isDefaultAddress,
-    }
+    };
 
-    onSubmit(addressData)
-  }
+    onSubmit(addressData);
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -55,7 +59,9 @@ export default function AddressFormModal({ isOpen, onClose, onSubmit }: AddressF
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Mobile Number</label>
+              <label className="block text-sm font-medium mb-1">
+                Mobile Number
+              </label>
               <input
                 type="tel"
                 name="mobile"
@@ -66,7 +72,9 @@ export default function AddressFormModal({ isOpen, onClose, onSubmit }: AddressF
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Flat, House No, Building, Company, Apartment</label>
+              <label className="block text-sm font-medium mb-1">
+                Flat, House No, Building, Company, Apartment
+              </label>
               <input
                 type="text"
                 name="building"
@@ -76,7 +84,9 @@ export default function AddressFormModal({ isOpen, onClose, onSubmit }: AddressF
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Area, Colony, Street, Sector, Village</label>
+              <label className="block text-sm font-medium mb-1">
+                Area, Colony, Street, Sector, Village
+              </label>
               <input
                 type="text"
                 name="area"
@@ -129,18 +139,26 @@ export default function AddressFormModal({ isOpen, onClose, onSubmit }: AddressF
             </div>
 
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="default-address" 
-                checked={isDefaultAddress} 
-                onCheckedChange={(checked) => setIsDefaultAddress(checked === true)} 
+              <Checkbox
+                id="default-address"
+                checked={isDefaultAddress}
+                onCheckedChange={(checked) =>
+                  setIsDefaultAddress(checked === true)
+                }
               />
-              <label htmlFor="default-address" className="text-sm cursor-pointer">
+              <label
+                htmlFor="default-address"
+                className="text-sm cursor-pointer"
+              >
                 Use as My Default Address
               </label>
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit" className="flex-1 bg-[#a08452] hover:bg-[#8c703d] text-white py-3">
+              <Button
+                type="submit"
+                className="flex-1 bg-[#a08452] hover:bg-[#8c703d] text-white py-3"
+              >
                 Add New Address
               </Button>
               <Button
@@ -156,6 +174,5 @@ export default function AddressFormModal({ isOpen, onClose, onSubmit }: AddressF
         </form>
       </div>
     </div>
-  )
+  );
 }
-

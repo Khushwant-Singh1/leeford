@@ -48,7 +48,7 @@ export async function isSlugUnique(slug: string, excludeId?: string): Promise<bo
 
 // Generate unique slug if needed
 export async function generateUniqueSlug(title: string, excludeId?: string): Promise<string> {
-  let baseSlug = generateSlug(title);
+  const baseSlug = generateSlug(title);
   let slug = baseSlug;
   let counter = 1;
 

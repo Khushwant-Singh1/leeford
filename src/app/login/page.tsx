@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
@@ -20,7 +20,7 @@ const formSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
@@ -85,85 +85,93 @@ export default function LoginPage() {
 
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          {/* Add your logo here */}
-          {/* <img src="/logo.svg" alt="Leeford Logo" className="w-24 mx-auto mb-4" /> */}
-          <CardTitle className="text-2xl font-bold">Welcome Back!</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="emailOrPhone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email or Phone Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="name@example.com or +1234567890" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel>Password</FormLabel>
-                      <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline">
-                        Forgot Password?
-                      </Link>
-                    </div>
-                    <FormControl>
-                      <PasswordInput placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Please wait
-                  </>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
-            </form>
-          </Form>
+    <Card className="w-full max-w-md">
+      <CardHeader className="text-center">
+        {/* Add your logo here */}
+        {/* <img src="/logo.svg" alt="Leeford Logo" className="w-24 mx-auto mb-4" /> */}
+        <CardTitle className="text-2xl font-bold">Welcome Back!</CardTitle>
+        <CardDescription>Enter your credentials to access your account</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="emailOrPhone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email or Phone Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="name@example.com or +1234567890" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Password</FormLabel>
+                    <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline">
+                      Forgot Password?
+                    </Link>
+                  </div>
+                  <FormControl>
+                    <PasswordInput placeholder="••••••••" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Please wait
+                </>
+              ) : (
+                'Sign In'
+              )}
+            </Button>
+          </form>
+        </Form>
 
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-muted-foreground dark:bg-slate-950">
-                Or continue with
-              </span>
-            </div>
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
           </div>
-          
-          {/* Add Social Login Buttons here if you have them */}
-          <Button variant="outline" className="w-full">
-             {/* <IconGoogle className="mr-2 h-4 w-4" /> */}
-             Sign in with Google
-          </Button>
-          
-          <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="font-semibold text-blue-600 hover:underline">
-              Register here
-            </Link>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-muted-foreground dark:bg-slate-950">
+              Or continue with
+            </span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        
+        {/* Add Social Login Buttons here if you have them */}
+        <Button variant="outline" className="w-full">
+           {/* <IconGoogle className="mr-2 h-4 w-4" /> */}
+           Sign in with Google
+        </Button>
+        
+        <div className="mt-4 text-center text-sm">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="font-semibold text-blue-600 hover:underline">
+            Register here
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900 p-4">
+      <Suspense fallback={<div>Loading...</div>}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }

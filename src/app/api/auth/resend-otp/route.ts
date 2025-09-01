@@ -22,11 +22,15 @@ export async function POST(req: Request) {
 
     // 2. Apply rate limiting based on the email/phone address
     const ratelimit = getOtpRateLimiter();
-    const identifier = `resend-otp:${emailOrPhone}`; // Use email/phone for a user-specific limit
-    const { success } = await ratelimit.limit(identifier);
+    
+    // Skip rate limiting if Redis is not available (e.g., during build)
+    if (ratelimit) {
+      const identifier = `resend-otp:${emailOrPhone}`; // Use email/phone for a user-specific limit
+      const { success } = await ratelimit.limit(identifier);
 
-    if (!success) {
-      return NextResponse.json({ error: 'Too many requests. Please try again in a few minutes.' }, { status: 429 });
+      if (!success) {
+        return NextResponse.json({ error: 'Too many requests. Please try again in a few minutes.' }, { status: 429 });
+      }
     }
 
     // 3. Find the user but don't reveal if they exist (prevents user enumeration)

@@ -1,22 +1,21 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search,
-  Tag,
-  FileText,
-  Calendar
-} from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Edit, Trash2, Search, Tag } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +34,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 
 interface BlogCategory {
   id: string;
@@ -53,44 +52,48 @@ interface BlogCategory {
 export default function BlogCategoriesPage() {
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<BlogCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<BlogCategory | null>(
+    null
+  );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<BlogCategory | null>(null);
-  
+  const [categoryToDelete, setCategoryToDelete] = useState<BlogCategory | null>(
+    null
+  );
+
   // Form state
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    color: '#3B82F6'
+    name: "",
+    description: "",
+    color: "#3B82F6",
   });
   const [formLoading, setFormLoading] = useState(false);
-  
+
   const { toast } = useToast();
 
   // Fetch categories
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/blog/categories');
+      const response = await fetch("/api/admin/blog/categories");
       const data = await response.json();
-      
+
       if (response.ok) {
         setCategories(data);
       } else {
         toast({
-          title: 'Error',
-          description: data.error || 'Failed to fetch categories',
-          variant: 'destructive',
+          title: "Error",
+          description: data.error || "Failed to fetch categories",
+          variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
-        title: 'Error',
-        description: 'Failed to fetch categories',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to fetch categories",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -99,7 +102,7 @@ export default function BlogCategoriesPage() {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,16 +110,16 @@ export default function BlogCategoriesPage() {
     setFormLoading(true);
 
     try {
-      const url = selectedCategory 
+      const url = selectedCategory
         ? `/api/admin/blog/categories/${selectedCategory.id}`
-        : '/api/admin/blog/categories';
-      
-      const method = selectedCategory ? 'PUT' : 'POST';
-      
+        : "/api/admin/blog/categories";
+
+      const method = selectedCategory ? "PUT" : "POST";
+
       const response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
       });
@@ -125,32 +128,32 @@ export default function BlogCategoriesPage() {
 
       if (response.ok) {
         toast({
-          title: 'Success',
-          description: selectedCategory 
-            ? 'Category updated successfully' 
-            : 'Category created successfully',
+          title: "Success",
+          description: selectedCategory
+            ? "Category updated successfully"
+            : "Category created successfully",
         });
-        
+
         // Reset form and close dialog
-        setFormData({ name: '', description: '', color: '#3B82F6' });
+        setFormData({ name: "", description: "", color: "#3B82F6" });
         setIsCreateDialogOpen(false);
         setIsEditDialogOpen(false);
         setSelectedCategory(null);
-        
+
         // Refresh categories
         fetchCategories();
       } else {
         toast({
-          title: 'Error',
-          description: data.error || 'Failed to save category',
-          variant: 'destructive',
+          title: "Error",
+          description: data.error || "Failed to save category",
+          variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
-        title: 'Error',
-        description: 'Failed to save category',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to save category",
+        variant: "destructive",
       });
     } finally {
       setFormLoading(false);
@@ -162,8 +165,8 @@ export default function BlogCategoriesPage() {
     setSelectedCategory(category);
     setFormData({
       name: category.name,
-      description: category.description || '',
-      color: category.color || '#3B82F6'
+      description: category.description || "",
+      color: category.color || "#3B82F6",
     });
     setIsEditDialogOpen(true);
   };
@@ -171,31 +174,34 @@ export default function BlogCategoriesPage() {
   // Handle delete
   const handleDelete = async () => {
     if (!categoryToDelete) return;
-    
+
     try {
-      const response = await fetch(`/api/admin/blog/categories/${categoryToDelete.id}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/admin/blog/categories/${categoryToDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (response.ok) {
         toast({
-          title: 'Success',
-          description: 'Category deleted successfully',
+          title: "Success",
+          description: "Category deleted successfully",
         });
         fetchCategories();
       } else {
         const data = await response.json();
         toast({
-          title: 'Error',
-          description: data.error || 'Failed to delete category',
-          variant: 'destructive',
+          title: "Error",
+          description: data.error || "Failed to delete category",
+          variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
-        title: 'Error',
-        description: 'Failed to delete category',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to delete category",
+        variant: "destructive",
       });
     } finally {
       setDeleteDialogOpen(false);
@@ -204,13 +210,14 @@ export default function BlogCategoriesPage() {
   };
 
   // Filter categories based on search
-  const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCategories = categories.filter(
+    (category) =>
+      category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      category.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', color: '#3B82F6' });
+    setFormData({ name: "", description: "", color: "#3B82F6" });
     setSelectedCategory(null);
   };
 
@@ -224,7 +231,7 @@ export default function BlogCategoriesPage() {
             Organize your blog posts with categories
           </p>
         </div>
-        
+
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
@@ -245,7 +252,9 @@ export default function BlogCategoriesPage() {
                   <label className="text-sm font-medium">Name *</label>
                   <Input
                     value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
                     placeholder="Category name"
                     required
                   />
@@ -254,7 +263,12 @@ export default function BlogCategoriesPage() {
                   <label className="text-sm font-medium">Description</label>
                   <Textarea
                     value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
                     placeholder="Brief description of this category"
                     rows={3}
                   />
@@ -265,27 +279,37 @@ export default function BlogCategoriesPage() {
                     <input
                       type="color"
                       value={formData.color}
-                      onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          color: e.target.value,
+                        }))
+                      }
                       className="w-10 h-10 rounded border"
                     />
                     <Input
                       value={formData.color}
-                      onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          color: e.target.value,
+                        }))
+                      }
                       placeholder="#3B82F6"
                     />
                   </div>
                 </div>
               </div>
               <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setIsCreateDialogOpen(false)}
                 >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={formLoading}>
-                  {formLoading ? 'Creating...' : 'Create Category'}
+                  {formLoading ? "Creating..." : "Create Category"}
                 </Button>
               </DialogFooter>
             </form>
@@ -324,9 +348,13 @@ export default function BlogCategoriesPage() {
           ) : filteredCategories.length === 0 ? (
             <div className="text-center py-8">
               <Tag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No categories found</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                No categories found
+              </h3>
               <p className="text-muted-foreground mb-4">
-                {searchTerm ? 'No categories match your search.' : 'Get started by creating your first category.'}
+                {searchTerm
+                  ? "No categories match your search."
+                  : "Get started by creating your first category."}
               </p>
               {!searchTerm && (
                 <Button onClick={() => setIsCreateDialogOpen(true)}>
@@ -353,14 +381,16 @@ export default function BlogCategoriesPage() {
                       <div className="flex items-center gap-2">
                         <div
                           className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: category.color || '#3B82F6' }}
+                          style={{
+                            backgroundColor: category.color || "#3B82F6",
+                          }}
                         />
                         {category.name}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="max-w-xs truncate">
-                        {category.description || '—'}
+                        {category.description || "—"}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -415,7 +445,9 @@ export default function BlogCategoriesPage() {
                 <label className="text-sm font-medium">Name *</label>
                 <Input
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   placeholder="Category name"
                   required
                 />
@@ -424,7 +456,12 @@ export default function BlogCategoriesPage() {
                 <label className="text-sm font-medium">Description</label>
                 <Textarea
                   value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
                   placeholder="Brief description of this category"
                   rows={3}
                 />
@@ -435,27 +472,37 @@ export default function BlogCategoriesPage() {
                   <input
                     type="color"
                     value={formData.color}
-                    onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        color: e.target.value,
+                      }))
+                    }
                     className="w-10 h-10 rounded border"
                   />
                   <Input
                     value={formData.color}
-                    onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        color: e.target.value,
+                      }))
+                    }
                     placeholder="#3B82F6"
                   />
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setIsEditDialogOpen(false)}
               >
                 Cancel
               </Button>
               <Button type="submit" disabled={formLoading}>
-                {formLoading ? 'Updating...' : 'Update Category'}
+                {formLoading ? "Updating..." : "Update Category"}
               </Button>
             </DialogFooter>
           </form>
@@ -468,8 +515,9 @@ export default function BlogCategoriesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the category "{categoryToDelete?.name}". 
-              This action cannot be undone. Posts in this category will become uncategorized.
+              This will permanently delete the category "
+              {categoryToDelete?.name}". This action cannot be undone. Posts in
+              this category will become uncategorized.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

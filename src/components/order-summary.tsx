@@ -1,21 +1,21 @@
-"use client"
-import { useState } from "react"
+"use client";
+import { useState } from "react";
 
 export default function OrderSummary() {
-  const [discountCode, setDiscountCode] = useState("")
-  const [isDiscountApplied, setIsDiscountApplied] = useState(false)
+  const [discountCode, setDiscountCode] = useState("");
+  const [isDiscountApplied, setIsDiscountApplied] = useState(false);
 
-  const subtotal = 10470
-  const deliveryCharge = 70
-  const discount = isDiscountApplied ? 0 : 0 // You can implement discount logic here
-  const grandTotal = subtotal + deliveryCharge - discount
+  const subtotal = 10470;
+  const deliveryCharge = 70;
+  const discount = isDiscountApplied ? 0 : 0; // You can implement discount logic here
+  const grandTotal = subtotal + deliveryCharge - discount;
 
   const handleApplyDiscount = () => {
     if (discountCode.trim()) {
-      setIsDiscountApplied(true)
+      setIsDiscountApplied(true);
       // Implement discount logic here
     }
-  }
+  };
 
   return (
     <div className="border rounded-md p-6 bg-white sticky top-4">
@@ -66,6 +66,5 @@ export default function OrderSummary() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-

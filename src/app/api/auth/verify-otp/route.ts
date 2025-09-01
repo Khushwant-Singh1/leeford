@@ -45,26 +45,30 @@ export async function POST(req: Request) {
 
     // Check rate limiting using Upstash Redis
     const ratelimiter = getOtpRateLimiter();
-    const { success, limit, reset, remaining } = await ratelimiter.limit(`otp:${normalizedEmailOrPhone}`);
     
-    if (!success) {
-      await logSecurityEventWithRequest(
-        req,
-        SECURITY_EVENTS.RATE_LIMIT_EXCEEDED,
-        { 
-          emailOrPhone: normalizedEmailOrPhone,
-          limit,
-          reset,
-          remaining,
-          context: 'otp_verification'
-        },
-        SecurityEventLevel.WARN
-      );
+    // Skip rate limiting if Redis is not available (e.g., during build)
+    if (ratelimiter) {
+      const { success, limit, reset, remaining } = await ratelimiter.limit(`otp:${normalizedEmailOrPhone}`);
       
-      return NextResponse.json(
-        { error: OtpError.RateLimited },
-        { status: 429 }
-      );
+      if (!success) {
+        await logSecurityEventWithRequest(
+          req,
+          SECURITY_EVENTS.RATE_LIMIT_EXCEEDED,
+          { 
+            emailOrPhone: normalizedEmailOrPhone,
+            limit,
+            reset,
+            remaining,
+            context: 'otp_verification'
+          },
+          SecurityEventLevel.WARN
+        );
+        
+        return NextResponse.json(
+          { error: OtpError.RateLimited },
+          { status: 429 }
+        );
+      }
     }
 
     // Check if user is already verified

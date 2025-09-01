@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     const parentOnly = searchParams.get('parentOnly') === 'true';
 
     // Build where clause
-    let where: any = {};
+    const where: any = {};
     
     // Handle status filter
     if (status === 'active') {
