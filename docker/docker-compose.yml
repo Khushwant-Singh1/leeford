@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.9"
 
 networks:
   app-network:
@@ -19,6 +19,9 @@ services:
     environment:
       # This URL is used by the rate-limiter in your code
       - REDIS_URL=redis://redis:6379
+      - NEXTAUTH_URL=http://localhost:3000
+      - AUTH_TRUST_HOST=true
+      - NEXTAUTH_SECRET=1hIYTnWU1FluFJPhzTLRP/6JQDJtR5mgN918XREx4x0=
     networks:
       - app-network
 

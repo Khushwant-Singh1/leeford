@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { signIn } from "next-auth/react";
 import * as z from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
+  const isResent = searchParams.get("resent") === "true";
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +63,13 @@ export function VerifyOtpForm() {
 
     return () => clearInterval(timer);
   }, [countdown, canResend]);
+
+  // Show resent message
+  useEffect(() => {
+    if (isResent) {
+      setSuccessMessage("A new OTP has been sent to your email for verification.");
+    }
+  }, [isResent]);
 
   const form = useForm<z.infer<typeof OTPSchema>>({
     resolver: zodResolver(OTPSchema),
@@ -89,7 +98,7 @@ export function VerifyOtpForm() {
 
       // Show success message
       setSuccessMessage(
-        "Verification successful! Please login with your credentials."
+        "Verification successful! Redirecting to login..."
       );
 
       // Redirect to login page with verification success indicator

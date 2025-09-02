@@ -11,8 +11,9 @@ COPY package.json pnpm-lock.yaml* ./
 # Copy prisma schema to ensure the client is generated on install
 COPY prisma ./prisma/
 # Install all dependencies including devDependencies
-RUN pnpm install --frozen-lockfile --config.auto-approve-builds=true
-
+RUN pnpm install --frozen-lockfile --ignore-scripts \
+  && pnpm approve-builds \
+  && pnpm rebuild -r
 # Stage 3: Build the application
 FROM base AS builder
 WORKDIR /app

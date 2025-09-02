@@ -44,36 +44,44 @@ function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
+      // First, check credentials and verification status
+      const checkResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailOrPhone: values.emailOrPhone,
+          password: values.password,
+        }),
+      });
+
+      const checkData = await checkResponse.json();
+
+      if (checkData.needsVerification) {
+        // User exists but not verified, OTP has been sent
+        toast.info(checkData.message);
+        router.push(`/verify-otp?email=${encodeURIComponent(checkData.email)}&resent=true`);
+        return;
+      }
+
+      if (!checkResponse.ok) {
+        // Invalid credentials or other error
+        toast.error(checkData.error || 'Invalid credentials');
+        return;
+      }
+
+      // Credentials are valid and user is verified, proceed with NextAuth
       const result = await signIn('credentials', {
         redirect: false,
         emailOrPhone: values.emailOrPhone,
         password: values.password,
       });
 
-      if (result?.error === "USER_NOT_VERIFIED") {
-        // Trigger OTP resend and redirect
-        toast.info('Your account is not verified. Sending a new OTP...');
-        
-        const resendResponse = await fetch('/api/auth/resend-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: values.emailOrPhone }),
-        });
-        
-        if (resendResponse.ok) {
-          toast.success('OTP sent! Please check your email.');
-          router.push(`/verify-otp?email=${encodeURIComponent(values.emailOrPhone)}&resent=true`);
-        } else {
-          const errorData = await resendResponse.json();
-          toast.error(errorData.error || 'Failed to send OTP');
-        }
-      } else if (result?.error) {
-        toast.error('Invalid credentials');
+      if (result?.error) {
+        toast.error('Login failed. Please try again.');
       } else if (result?.ok) {
         toast.success('Login successful!');
-        // Check if user has admin role and redirect accordingly
         router.push('/profile');
-        router.refresh(); // Refresh to update session state
+        router.refresh();
       }
     } catch (err) {
       console.error('Login error:', err);

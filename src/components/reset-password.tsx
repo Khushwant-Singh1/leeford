@@ -24,7 +24,6 @@ import {
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordInput } from "./password-input";
-import Link from "next/link";
 
 // Zod schema for form validation
 const formSchema = z

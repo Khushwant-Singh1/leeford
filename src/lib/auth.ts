@@ -82,8 +82,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
           if (!user.isVerified) {
             console.log('❌ User account is not verified:', user.email);
-            // Throw a custom error that the frontend can identify.
-            throw new Error("USER_NOT_VERIFIED"); 
+            // Return null to prevent login for unverified users
+            return null;
           }
 
           console.log('✅ User found:', {
