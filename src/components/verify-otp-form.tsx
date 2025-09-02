@@ -93,17 +93,25 @@ export function VerifyOtpForm() {
       });
 
       const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || "OTP verification failed");
+      if (!response.ok) {
+        const errorMessage = data.error || "OTP verification failed";
+        
+        // Check if we should show the resend button (max attempts exceeded)
+        if (data.showResendButton) {
+          setCanResend(true);
+        }
+        
+        throw new Error(errorMessage);
+      }
 
       // Show success message
       setSuccessMessage(
         "Verification successful! Redirecting to login..."
       );
 
-      // Redirect to login page with verification success indicator
+      // Redirect to profile page with verification success indicator
       setTimeout(() => {
-        router.push(`/login?verified=true&email=${encodeURIComponent(email)}`);
+        router.push(`/profile}`);
       }, 2000);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");

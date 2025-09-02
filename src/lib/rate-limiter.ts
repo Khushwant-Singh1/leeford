@@ -36,13 +36,36 @@ function createRedisAdapter(client: ReturnType<typeof createClient>) {
       try {
         return await client.eval(script, {
           keys,
-          arguments: args,
+          arguments: args.map(arg => String(arg)), // Convert all args to strings
         });
       } catch (error) {
         console.warn('Redis eval error:', error);
         throw error;
       }
     },
+    evalsha: async (sha: string, keys: string[], args: string[]) => {
+      try {
+        return await client.evalSha(sha, {
+          keys,
+          arguments: args.map(arg => String(arg)), // Convert all args to strings
+        });
+      } catch (error: any) {
+        // If script not found, Redis will return NOSCRIPT error
+        // The rate limiter will handle this by falling back to EVAL
+        console.warn('Redis evalsha error:', error);
+        throw error;
+      }
+    },
+    script: {
+      load: async (script: string) => {
+        try {
+          return await client.scriptLoad(script);
+        } catch (error) {
+          console.warn('Redis script load error:', error);
+          throw error;
+        }
+      }
+    }
   };
 }
 
