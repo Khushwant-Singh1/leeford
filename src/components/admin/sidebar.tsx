@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { signOut } from "next-auth/react"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import {
   Home,
   ShoppingCart,
@@ -27,13 +27,13 @@ import {
   BookOpen,
   Wrench,
   Cog,
-  Layout
-} from "lucide-react"
+  Layout,
+} from "lucide-react";
 
 export function Sidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
-  const isActive = (path: string) => pathname.startsWith(path)
+  const isActive = (path: string) => pathname.startsWith(path);
 
   return (
     <div className="w-[220px] bg-white border-r border-gray-200 flex flex-col h-full">
@@ -41,11 +41,15 @@ export function Sidebar() {
         <span className="h-6 w-6 rounded-full bg-[#4f507f]"></span>
         <span>Leeford</span>
       </div>
-
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Main</div>
         <div className="space-y-1">
-          <NavItem href="/admin" icon={<Home size={18} />} label="Dashboard" active={isActive("/admin")} />
+          <NavItem
+            href="/admin"
+            icon={<Home size={18} />}
+            label="Dashboard"
+            active={isActive("/admin")}
+          />
           <NavItem
             href="/admin/products"
             icon={<Package size={18} />}
@@ -60,7 +64,6 @@ export function Sidebar() {
           />
         </div>
       </div>
-
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Products</div>
         <div className="space-y-1">
@@ -90,48 +93,47 @@ export function Sidebar() {
           />
         </div>
       </div>
-
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Services</div>
         <div className="space-y-1">
-          <NavItem 
-            href="/admin/services" 
+          <NavItem
+            href="/admin/services"
             icon={<Wrench size={18} />}
             label="All Services"
             active={pathname === "/admin/services"}
           />
-          <NavItem 
-            href="/admin/services/add" 
+          <NavItem
+            href="/admin/services/add"
             icon={<Plus size={18} />}
             label="Add Service"
             active={pathname === "/admin/services/add"}
           />
-          <NavItem 
-            href="/admin/services/categories" 
+          <NavItem
+            href="/admin/services/categories"
             icon={<Layers size={18} />}
             label="Service Categories"
             active={isActive("/admin/services/categories")}
           />
-          <NavItem 
-            href="/admin/services/analytics" 
+          <NavItem
+            href="/admin/services/analytics"
             icon={<BarChart2 size={18} />}
             label="Service Analytics"
             active={isActive("/admin/services/analytics")}
           />
         </div>
       </div>
-
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Page Builder</div>
         <div className="space-y-1">
-          <NavItem 
-            href="/admin/page-builder" 
+          <NavItem
+            href="/admin/page-builder"
             icon={<Layout size={18} />}
             label="Build Pages"
             active={isActive("/admin/page-builder")}
           />
         </div>
-      </div>      <div className="p-4">
+      </div>{" "}
+      <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Orders</div>
         <div className="space-y-1">
           <NavItem
@@ -142,7 +144,17 @@ export function Sidebar() {
           />
         </div>
       </div>
-
+      <div className="p-4">
+        <div className="text-sm text-gray-500 mb-2">Users</div>
+        <div className="space-y-1">
+          <NavItem
+            href="/admin/users"
+            icon={<Users size={18} />}
+            label="User Management"
+            active={isActive("/admin/users")}
+          />
+        </div>
+      </div>
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Customers</div>
         <div className="space-y-1">
@@ -166,7 +178,6 @@ export function Sidebar() {
           />
         </div>
       </div>
-
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Analytics</div>
         <div className="space-y-1">
@@ -184,7 +195,6 @@ export function Sidebar() {
           />
         </div>
       </div>
-
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Communication</div>
         <div className="space-y-1">
@@ -196,7 +206,6 @@ export function Sidebar() {
           />
         </div>
       </div>
-
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Content</div>
         <div className="space-y-1">
@@ -220,7 +229,6 @@ export function Sidebar() {
           />
         </div>
       </div>
-
       {/* <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Monitoring</div>
         <div className="space-y-1">
@@ -232,7 +240,6 @@ export function Sidebar() {
           />
         </div>
       </div> */}
-
       <div className="p-4">
         <div className="text-sm text-gray-500 mb-2">Marketing</div>
         <div className="space-y-1">
@@ -244,7 +251,6 @@ export function Sidebar() {
           />
         </div>
       </div>
-
       <div className="mt-auto p-4 border-t border-gray-200">
         <NavItem
           href="/admin/settings"
@@ -263,7 +269,7 @@ export function Sidebar() {
         </button>
       </div>
     </div>
-  )
+  );
 }
 
 function NavItem({
@@ -271,15 +277,23 @@ function NavItem({
   icon,
   label,
   active = false,
-}: { href: string; icon: React.ReactNode; label: string; active?: boolean }) {
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+}) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm ${active ? "bg-[#edeefc] text-[#4f507f] font-medium" : "text-gray-700 hover:bg-gray-100"}`}
+      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm ${
+        active
+          ? "bg-[#edeefc] text-[#4f507f] font-medium"
+          : "text-gray-700 hover:bg-gray-100"
+      }`}
     >
       {icon}
       <span>{label}</span>
     </Link>
-  )
+  );
 }
-

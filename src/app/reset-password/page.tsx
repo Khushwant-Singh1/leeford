@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { ResetPasswordForm } from '@/components/reset-password';
+import ResetPasswordForm from '@/components/reset-password';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 

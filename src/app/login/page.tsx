@@ -80,7 +80,17 @@ function LoginForm() {
         toast.error('Login failed. Please try again.');
       } else if (result?.ok) {
         toast.success('Login successful!');
-        router.push('/profile');
+        
+        // Get the user data to check role
+        const sessionResponse = await fetch('/api/auth/session');
+        const sessionData = await sessionResponse.json();
+        
+        if (sessionData?.user?.role === 'admin') {
+          router.push('/admin');
+        } else {
+          router.push('/profile');
+        }
+        
         router.refresh();
       }
     } catch (err) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,19 +13,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Enhanced validation schema with better error messages
 const formSchema = z.object({
-  name: z.string()
-    .min(1, 'Service name is required')
-    .max(100, 'Service name must be less than 100 characters')
-    .regex(/^[a-zA-Z0-9\s\-_&()]+$/, 'Service name contains invalid characters'),
-  description: z.string()
-    .min(1, 'Description is required')
-    .max(500, 'Description must be less than 500 characters'),
+  name: z
+    .string()
+    .min(1, 'Required')
+    .max(100, 'Maximum 100 characters')
+    .regex(/^[a-zA-Z0-9\s\-_&()]+$/, 'Only letters, numbers, spaces and - _ & ()'),
+  description: z.string().min(1, 'Required').max(500, 'Maximum 500 characters'),
   parentId: z.string().optional(),
   isActive: z.boolean(),
 });
@@ -35,226 +33,116 @@ type FormData = z.infer<typeof formSchema>;
 interface ParentService {
   id: string;
   name: string;
-  slug: string;
-  parent?: {
-    id: string;
-    name: string;
-  } | null;
+  parent?: { id: string; name: string } | null;
 }
-
-interface Service {
-  id: string;
-  name: string;
-  description: string;
-  parentId: string | null;
-  isActive: boolean;
-  slug: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Error boundary component
-const ErrorBoundary = ({ error, reset }: { error: Error; reset: () => void }) => (
-  <Alert variant="destructive" className="max-w-2xl">
-    <AlertCircle className="h-4 w-4" />
-    <AlertDescription>
-      <div className="space-y-2">
-        <p className="font-medium">Something went wrong</p>
-        <p className="text-sm">{error.message}</p>
-        <Button variant="outline" size="sm" onClick={reset}>
-          Try again
-        </Button>
-      </div>
-    </AlertDescription>
-  </Alert>
-);
 
 export default function EditServicePage() {
   const router = useRouter();
-  const params = useParams();
-  const serviceId = params.id as string;
+  const { id } = useParams();
+  const serviceId = id as string;
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [parentServices, setParentServices] = useState<ParentService[]>([]);
-  const [service, setService] = useState<Service | null>(null);
+  const [service, setService] = useState<ParentService & { description: string; isActive: boolean } | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      description: '',
-      parentId: 'none',
-      isActive: true,
-    },
+    defaultValues: { name: '', description: '', parentId: 'none', isActive: true },
   });
 
-  // Fetch service data
+  /* ---------- Data ---------- */
   useEffect(() => {
-    const fetchService = async () => {
-      try {
-        const response = await fetch(`/api/admin/services/${serviceId}`);
-        const data = await response.json();
-        
-        if (response.ok) {
-          setService(data);
-          form.setValue('name', data.name);
-          form.setValue('description', data.description);
-          form.setValue('parentId', data.parentId || 'none');
-          form.setValue('isActive', data.isActive);
-        } else {
-          toast({
-            title: 'Error',
-            description: data.error || 'Service not found',
-            variant: 'destructive',
-          });
-          router.push('/admin/services');
-        }
-      } catch (error) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load service',
-          variant: 'destructive',
+    Promise.all([
+      fetch(`/api/admin/services/${serviceId}`).then((r) => r.json()),
+      fetch('/api/admin/services?limit=1000&status=active').then((r) => r.json()),
+    ])
+      .then(([svc, parents]) => {
+        setService(svc);
+        setParentServices(
+          (parents.services || []).filter((s: ParentService) => s.id !== serviceId)
+        );
+        form.reset({
+          name: svc.name,
+          description: svc.description,
+          parentId: svc.parentId || 'none',
+          isActive: svc.isActive,
         });
-        router.push('/admin/services');
-      } finally {
-        setPageLoading(false);
-      }
-    };
+      })
+      .catch(() => {
+        toast({ title: 'Service not found', variant: 'destructive' });
+        router.replace('/admin/services');
+      })
+      .finally(() => setIsLoading(false));
+  }, [serviceId, router, toast, form]);
 
-    if (serviceId) {
-      fetchService();
-    }
-  }, [serviceId, form, router, toast]);
-
-  // Fetch parent services
-  useEffect(() => {
-    const fetchParentServices = async () => {
-      try {
-        // Fetch all services to allow creating sub-sub-categories
-        const response = await fetch('/api/admin/services?limit=1000&status=active');
-        const data = await response.json();
-        
-        if (response.ok) {
-          // Filter out current service and its descendants to prevent circular references
-          const filteredServices = data.services?.filter((s: ParentService) => {
-            // Don't include the current service
-            if (s.id === serviceId) return false;
-            // TODO: Add logic to filter out descendants to prevent circular references
-            return true;
-          }) || [];
-          setParentServices(filteredServices);
-        }
-      } catch (error) {
-        console.error('Failed to fetch parent services:', error);
-      }
-    };
-
-    fetchParentServices();
-  }, [serviceId]);
-
+  /* ---------- Submit ---------- */
   async function onSubmit(values: FormData) {
-    setIsLoading(true);
+    setIsSaving(true);
     try {
-      const response = await fetch(`/api/admin/services/${serviceId}`, {
+      const res = await fetch(`/api/admin/services/${serviceId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...values,
-          parentId: values.parentId && values.parentId !== 'none' ? values.parentId : null,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...values, parentId: values.parentId === 'none' ? null : values.parentId }),
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Service updated successfully',
-        });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: 'Saved', description: 'Service updated successfully' });
         router.push('/admin/services');
       } else {
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to update service',
-          variant: 'destructive',
-        });
+        toast({ title: 'Error', description: data.error || 'Update failed', variant: 'destructive' });
       }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      });
+    } catch {
+      toast({ title: 'Unexpected error', variant: 'destructive' });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   }
 
-  if (pageLoading) {
+  /* ---------- Loading Skeleton ---------- */
+  if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/services">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Services
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">Edit Service</h1>
-            <p className="text-muted-foreground">Loading service details...</p>
-          </div>
-        </div>
-        <Card className="max-w-2xl">
-          <CardContent className="p-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-10 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-20 bg-gray-200 rounded"></div>
-            </div>
+      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+        <Skeleton className="h-10 w-48 rounded" />
+        <Card>
+          <CardContent className="p-6 space-y-5">
+            <Skeleton className="h-5 w-1/4" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-5 w-1/4" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-10 w-32 rounded" />
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (!service) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">Service not found</p>
-        <Link href="/admin/services">
-          <Button className="mt-4">
-            Back to Services
-          </Button>
-        </Link>
-      </div>
-    );
-  }
-
+  /* ---------- UI ---------- */
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/admin/services">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Services
-          </Button>
-        </Link>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/admin/services">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Link>
+        </Button>
         <div>
-          <h1 className="text-3xl font-bold">Edit Service</h1>
-          <p className="text-muted-foreground">Update service details and settings</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-neutral-50">
+            Edit Service
+          </h1>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Update details and save changes
+          </p>
         </div>
       </div>
 
       {/* Form */}
-      <Card className="max-w-2xl">
+      <Card className="border-neutral-200 dark:border-neutral-800">
         <CardHeader>
-          <CardTitle>Service Details</CardTitle>
+          <CardTitle className="text-lg">Service Details</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -264,9 +152,9 @@ export default function EditServicePage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Service Name</FormLabel>
+                    <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter service name" {...field} />
+                      <Input placeholder="e.g. Haircut & Styling" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -280,11 +168,7 @@ export default function EditServicePage() {
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea 
-                        placeholder="Enter service description"
-                        rows={4}
-                        {...field} 
-                      />
+                      <Textarea placeholder="Describe what this service includes..." rows={3} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -296,23 +180,18 @@ export default function EditServicePage() {
                 name="parentId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Parent Service (Optional)</FormLabel>
+                    <FormLabel>Parent Service</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select parent service (leave empty for root service)" />
+                          <SelectValue placeholder="Choose parent..." />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">No parent (Root service)</SelectItem>
-                        {parentServices.map((service) => (
-                          <SelectItem key={service.id} value={service.id}>
-                            {service.parent ? `↳ ${service.name}` : service.name}
-                            {service.parent && (
-                              <span className="text-muted-foreground text-xs ml-2">
-                                (under {service.parent.name})
-                              </span>
-                            )}
+                        <SelectItem value="none">None (root service)</SelectItem>
+                        {parentServices.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.parent ? `↳ ${p.name}` : p.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -326,39 +205,35 @@ export default function EditServicePage() {
                 control={form.control}
                 name="isActive"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Active Status</FormLabel>
-                      <div className="text-sm text-muted-foreground">
-                        Enable this service to make it visible to customers
-                      </div>
+                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                    <div>
+                      <FormLabel className="font-medium">Active</FormLabel>
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        Customers can see and book this service when enabled
+                      </p>
                     </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormItem>
                 )}
               />
 
-              <div className="flex gap-4">
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? (
+              <div className="flex gap-3">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Updating...
+                      Saving...
                     </>
                   ) : (
-                    'Update Service'
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </>
                   )}
                 </Button>
-                <Link href="/admin/services">
-                  <Button type="button" variant="outline">
-                    Cancel
-                  </Button>
-                </Link>
+                <Button variant="outline" asChild>
+                  <Link href="/admin/services">Cancel</Link>
+                </Button>
               </div>
             </form>
           </Form>
