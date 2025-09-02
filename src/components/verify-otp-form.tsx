@@ -109,9 +109,9 @@ export function VerifyOtpForm() {
         "Verification successful! Redirecting to login..."
       );
 
-      // Redirect to profile page with verification success indicator
+      // Redirect to login page with verification success indicator
       setTimeout(() => {
-        router.push(`/profile}`);
+        router.push(`/login?verified=true&email=${encodeURIComponent(email)}`);
       }, 2000);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");

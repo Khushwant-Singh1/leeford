@@ -49,9 +49,7 @@ function createRedisAdapter(client: ReturnType<typeof createClient>) {
           keys,
           arguments: args.map(arg => String(arg)), // Convert all args to strings
         });
-      } catch (error: any) {
-        // If script not found, Redis will return NOSCRIPT error
-        // The rate limiter will handle this by falling back to EVAL
+      } catch (error) {
         console.warn('Redis evalsha error:', error);
         throw error;
       }

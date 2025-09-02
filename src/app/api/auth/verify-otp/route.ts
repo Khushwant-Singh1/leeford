@@ -86,97 +86,98 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: OtpError.AlreadyVerified }, { status: 200 });
     }
 
-    // First, find the most recent, non-used OTP for the email/phone
-    const verificationCode = await prisma.verificationCode.findFirst({
-      where: {
-        OR: [
-          { email: normalizedEmailOrPhone },
-          { phoneNumber: normalizedEmailOrPhone },
-        ],
-        isUsed: false,
-        expiresAt: {
-          gt: new Date(), // Not expired
+    // Use transaction to ensure data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // Find the most recent, non-used OTP for the email/phone
+      const verificationCode = await tx.verificationCode.findFirst({
+        where: {
+          OR: [
+            { email: normalizedEmailOrPhone },
+            { phoneNumber: normalizedEmailOrPhone },
+          ],
+          isUsed: false,
+          expiresAt: {
+            gt: new Date(), // Not expired
+          },
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      select: {
-        id: true,
-        code: true,
-        attempts: true,
-        expiresAt: true,
-      },
-    });
-
-    if (!verificationCode) {
-      await logSecurityEventWithRequest(
-        req,
-        SECURITY_EVENTS.AUTH_OTP_FAILED,
-        { 
-          emailOrPhone: normalizedEmailOrPhone,
-          reason: 'no_valid_otp_found'
+        orderBy: {
+          createdAt: 'desc',
         },
-        SecurityEventLevel.WARN
-      );
-      throw new Error(OtpError.NoValidOtp);
-    }
-
-    // Check if OTP has exceeded maximum attempts
-    if (verificationCode.attempts >= 5) {
-      await logSecurityEventWithRequest(
-        req,
-        SECURITY_EVENTS.AUTH_OTP_FAILED,
-        { 
-          emailOrPhone: normalizedEmailOrPhone,
-          verificationCodeId: verificationCode.id,
-          reason: 'max_attempts_exceeded',
-          attempts: verificationCode.attempts
+        select: {
+          id: true,
+          code: true,
+          attempts: true,
+          expiresAt: true,
         },
-        SecurityEventLevel.ERROR
-      );
-      
-      // Mark as used to prevent further attempts
-      await prisma.verificationCode.update({
-        where: { id: verificationCode.id },
-        data: { isUsed: true },
-      });
-      
-      throw new Error(OtpError.MaxAttemptsExceeded);
-    }
-
-    // Use timing-safe comparison for OTP validation
-    const expectedHash = createHash('sha256').update(verificationCode.code).digest();
-    const actualHash = createHash('sha256').update(otp).digest();
-    
-    if (!timingSafeEqual(expectedHash, actualHash)) {
-      // First, increment attempt counter in a separate transaction to ensure it's saved
-      const updatedCode = await prisma.verificationCode.update({
-        where: { id: verificationCode.id },
-        data: { attempts: { increment: 1 } },
-        select: { attempts: true }
       });
 
-      const newAttemptCount = updatedCode.attempts;
-      const remainingAttempts = 5 - newAttemptCount;
+      if (!verificationCode) {
+        await logSecurityEventWithRequest(
+          req,
+          SECURITY_EVENTS.AUTH_OTP_FAILED,
+          { 
+            emailOrPhone: normalizedEmailOrPhone,
+            reason: 'no_valid_otp_found'
+          },
+          SecurityEventLevel.WARN
+        );
+        throw new Error(OtpError.NoValidOtp);
+      }
 
-      await AuthLogger.otpFailed(normalizedEmailOrPhone, newAttemptCount, req);
-      
-      if (remainingAttempts <= 0) {
-        // Mark as used after 5 failed attempts
-        await prisma.verificationCode.update({
+      // Check if OTP has exceeded maximum attempts
+      if (verificationCode.attempts >= 5) {
+        await logSecurityEventWithRequest(
+          req,
+          SECURITY_EVENTS.AUTH_OTP_FAILED,
+          { 
+            emailOrPhone: normalizedEmailOrPhone,
+            verificationCodeId: verificationCode.id,
+            reason: 'max_attempts_exceeded',
+            attempts: verificationCode.attempts
+          },
+          SecurityEventLevel.ERROR
+        );
+        
+        // Mark as used to prevent further attempts
+        await tx.verificationCode.update({
           where: { id: verificationCode.id },
           data: { isUsed: true },
         });
+        
         throw new Error(OtpError.MaxAttemptsExceeded);
       }
 
-      // Return error with remaining attempts
-      throw new Error(`Invalid OTP. You have ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`);
-    }
+      // Use timing-safe comparison for OTP validation
+      const expectedHash = createHash('sha256').update(verificationCode.code).digest();
+      const actualHash = createHash('sha256').update(otp).digest();
+      
+      if (!timingSafeEqual(expectedHash, actualHash)) {
+        // Increment attempt counter
+        const updatedCode = await tx.verificationCode.update({
+          where: { id: verificationCode.id },
+          data: { attempts: { increment: 1 } },
+          select: { attempts: true }
+        });
 
-    // OTP is valid, now update user verification status and mark OTP as used in transaction
-    const result = await prisma.$transaction(async (tx) => {
+        const newAttemptCount = updatedCode.attempts;
+        const remainingAttempts = 5 - newAttemptCount;
+
+        await AuthLogger.otpFailed(normalizedEmailOrPhone, newAttemptCount, req);
+        
+        if (remainingAttempts <= 0) {
+          // Mark as used after 5 failed attempts
+          await tx.verificationCode.update({
+            where: { id: verificationCode.id },
+            data: { isUsed: true },
+          });
+          throw new Error(OtpError.MaxAttemptsExceeded);
+        }
+
+        // Return error with remaining attempts
+        throw new Error(`Invalid OTP. You have ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`);
+      }
+
+      // Update user verification status and mark OTP as used
       const [updatedUser] = await Promise.all([
         tx.user.update({
           where: { id: user!.id },
