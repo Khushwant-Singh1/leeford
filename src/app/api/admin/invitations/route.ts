@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     }
     
     // Check if there's already a pending invitation for this email
-    const existingInvitation = await prisma.Invitation.findUnique({ 
+    const existingInvitation = await prisma.invitation.findUnique({ 
       where: { email } 
     });
     

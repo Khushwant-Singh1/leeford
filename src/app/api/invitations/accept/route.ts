@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
     if (invitation.expiresAt < new Date()) {
       // Mark as expired
-      await prisma.Invitation.update({
+      await prisma.invitation.update({
         where: { id: invitation.id },
         data: { status: 'EXPIRED' },
       });
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
       });
 
       // Mark invitation as accepted
-      await tx.Invitation.update({
+      await tx.invitation.update({
         where: { id: invitation.id },
         data: { status: 'ACCEPTED' },
       });
