@@ -85,7 +85,7 @@ function LoginForm() {
         const sessionResponse = await fetch('/api/auth/session');
         const sessionData = await sessionResponse.json();
         
-        if (sessionData?.user?.role === 'admin') {
+        if (sessionData?.user?.role === 'ADMIN') {
           router.push('/admin');
         } else {
           router.push('/profile');
