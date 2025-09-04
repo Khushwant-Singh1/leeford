@@ -69,3 +69,38 @@ export const sendPasswordResetEmail = async (to: string, token: string) => {
     throw new Error('Could not send password reset email.');
   }
 };
+
+/**
+ * Sends an invitation email to a new user.
+ * @param to The recipient's email address.
+ * @param invitationUrl The unique URL to accept the invitation.
+ * @param role The role the user will have when they accept.
+ */
+export const sendInvitationEmail = async (to: string, invitationUrl: string, role: string) => {
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: to,
+    subject: 'You have been invited to join Leeford',
+    html: `
+      <h1>You're Invited!</h1>
+      <p>You have been invited to join the Leeford platform as a <strong>${role}</strong>. Please click the link below to create your account.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${invitationUrl}" target="_blank" style="padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">Accept Invitation</a>
+      </div>
+      <p><strong>This invitation is valid for 48 hours.</strong></p>
+      <p>If you did not expect this invitation, please ignore this email.</p>
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+      <p style="font-size: 12px; color: #666;">If the button above doesn't work, copy and paste this link into your browser:<br>
+      <a href="${invitationUrl}">${invitationUrl}</a></p>
+    `,
+    text: `You have been invited to join the Leeford platform as a ${role}. Please use the following link to create your account: ${invitationUrl}. This invitation is valid for 48 hours. If you did not expect this invitation, please ignore this email.`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('✅ Invitation email sent to:', to);
+  } catch (error) {
+    console.error('💥 Failed to send invitation email:', error);
+    throw new Error('Could not send invitation email.');
+  }
+};
