@@ -2,9 +2,10 @@ import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import { renderTiptapContent } from '@/lib/tiptap-renderer';
+import { renderTiptapContent } from '@/lib/tiptap-render';
 import { Calendar, UserCircle } from 'lucide-react';
 import type { Metadata } from 'next';
+import { JSONContent } from '@tiptap/core';
 
 // Generate metadata for SEO
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
@@ -39,7 +40,8 @@ export default async function SingleArticlePage({ params }: { params: { slug: st
   }
   
   // Safely render the Tiptap content to HTML
-  const contentHTML = renderTiptapContent(post.content);
+  const contentHTML = renderTiptapContent(post.content as JSONContent);
+;
   const authorName = `${post.author.firstName || ''} ${post.author.lastName || ''}`.trim() || 'Leeford Team';
 
   return (

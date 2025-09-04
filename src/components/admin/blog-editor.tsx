@@ -1,13 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
-import CharacterCount from '@tiptap/extension-character-count';
-import ListItem from '@tiptap/extension-list-item';
-import {TextStyle} from '@tiptap/extension-text-style';
-import { Color } from '@tiptap/extension-color';
-import Highlight from '@tiptap/extension-highlight';
+// Removed individual Tiptap extension imports; using centralized extensions
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { debounce } from 'lodash';
 import { Button } from '@/components/ui/button';
@@ -42,6 +34,7 @@ import {
   Plus,
   Tag
 } from 'lucide-react';
+import { tiptapExtensions } from '@/lib/tiptap-extensions'
 
 interface BlogEditorProps {
   postId?: string;
@@ -93,60 +86,15 @@ export function BlogEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3],
-        },
-        bulletList: {
-          keepMarks: true,
-          keepAttributes: false,
-        },
-        orderedList: {
-          keepMarks: true,
-          keepAttributes: false,
-        },
-        listItem: {
-          HTMLAttributes: {
-            class: 'my-list-item',
-          },
-        },
-        blockquote: {
-          HTMLAttributes: {
-            class: 'my-blockquote',
-          },
-        },
-      }),
-      ListItem,
-      TextStyle,
-      Color,
-      Highlight.configure({ multicolor: true }),
-      Image.configure({
-        inline: true,
-        allowBase64: true,
-      }),
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        HTMLAttributes: {
-          class: 'text-primary underline underline-offset-[3px]',
-        },
-      }),
-      Placeholder.configure({
-        placeholder: 'Start writing your story...',
-      }),
-      CharacterCount,
-    ],
+    extensions: tiptapExtensions,
     content: initialData?.content || '<p>Start writing your masterpiece...</p>',
     editable: !readOnly,
     onUpdate: ({ editor }) => {
       const content = editor.getJSON();
       const text = editor.getText();
       const words = text.split(/\s+/).filter(word => word.length > 0).length;
-      
       setWordCount(words);
       setReadingTime(Math.max(1, Math.ceil(words / 200)));
-      
       if (!readOnly && postId) {
         handleAutoSave(title, content);
       }
