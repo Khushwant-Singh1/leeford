@@ -36,6 +36,17 @@ model User {
   @@index([email])
   @@index([phoneNumber])
 }
+model AuthorProfile {
+  id             String  @id @default(uuid())  
+  name           String 
+  bio            String? @db.Text
+  profilePicture String?
+  socialLinks    Json?   // e.g., { "twitter": "url", "linkedin": "url" }
+  // An author can have many blog posts (this relation remains)
+  blogPosts BlogPost[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 model Invitation {
   id          String           @id @default(uuid())
@@ -397,6 +408,9 @@ model BlogPost {
   authorId       String
   autosaveDraft  Json?
   autosavedAt    DateTime?
+  faqs           BlogFAQ[]
+  authorId String
+  author   AuthorProfile @relation(fields: [authorId], references: [id])
   excerpt        String?
   featuredImage  String?
   isLocked       Boolean         @default(false)
@@ -456,6 +470,22 @@ model BlogAnalytics {
   @@index([postId])
   @@index([event])
   @@index([createdAt])
+}
+
+model BlogFAQ {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String   @db.Text
+  order     Int      @default(0)
+
+  // Relation to the BlogPost
+  postId String
+  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId, order])
 }
 
 model Testimonial {

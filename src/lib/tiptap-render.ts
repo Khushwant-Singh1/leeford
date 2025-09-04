@@ -1,6 +1,7 @@
 import { generateHTML } from '@tiptap/html';
 import { JSONContent } from '@tiptap/core';
-import { tiptapExtensions } from './tiptap-extensions'; // <-- Import from shared file
+import { tiptapExtensions } from './tiptap-extensions';
+ // <-- Import from shared file
 
 export function renderTiptapContent(content: JSONContent | null | undefined): string {
   if (!content) return '';

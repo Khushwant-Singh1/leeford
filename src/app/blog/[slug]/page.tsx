@@ -24,9 +24,22 @@ async function getSingleArticle(slug: string) {
   const article = await prisma.blogPost.findUnique({
     where: { slug, status: 'PUBLISHED' },
     include: {
-      author: true,
+      // The new nested include structure
+      author: {
+        include: {
+          author: { // Get the user's name from the related User model
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
       category: true,
       tags: true,
+      faqs: {
+        orderBy: { order: 'asc' },
+      },
     },
   });
   return article;
