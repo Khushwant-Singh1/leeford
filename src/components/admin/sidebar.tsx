@@ -227,6 +227,12 @@ export function Sidebar() {
             label="Categories"
             active={isActive("/admin/blog/categories")}
           />
+          <NavItem
+            href="/admin/authors"
+            icon={<Users size={18} />}
+            label="Authors"
+            active={isActive("/admin/authors")}
+          />
         </div>
       </div>
       {/* <div className="p-4">

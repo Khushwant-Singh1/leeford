@@ -9,13 +9,14 @@ const s3 = new S3Client({
   },
 });
 
-export async function uploadImageToS3(file: Buffer, fileType: string) {
+export async function uploadImageToS3(file: Buffer, fileType: string, folder?: string) {
   const fileName = `${randomUUID()}.${fileType.split("/")[1]}`;
+  const key = folder ? `${folder}/${fileName}` : fileName;
   const bucketName = process.env.AWS_S3_BUCKET_NAME!;
 
   const command = new PutObjectCommand({
     Bucket: bucketName,
-    Key: fileName,
+    Key: key,
     Body: file,
     ContentType: fileType,
      // So it's accessible
@@ -23,5 +24,5 @@ export async function uploadImageToS3(file: Buffer, fileType: string) {
 
   await s3.send(command);
 
-  return `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+  return `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 }

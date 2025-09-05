@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { checkAdmin } from '@/lib/auth-helpers';
+import { checkAdmin } from '@/lib/auth-helper';
 
 /**
  * PATCH /api/admin/authors/[authorId] - Updates an author profile.

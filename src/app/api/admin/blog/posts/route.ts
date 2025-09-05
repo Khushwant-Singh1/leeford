@@ -115,9 +115,7 @@ export async function POST(req: NextRequest) {
         author: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+            name: true,
           },
         },
         category: {

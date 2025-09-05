@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { checkAdmin } from '@/lib/auth-helpers';
+import { checkAdmin } from '@/lib/auth-helper';
 
 /**
  * GET /api/admin/authors - Fetches all author profiles.

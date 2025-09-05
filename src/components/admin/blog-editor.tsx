@@ -1,6 +1,9 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 // Removed individual Tiptap extension imports; using centralized extensions
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { debounce } from 'lodash';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Bold, 
@@ -32,9 +37,30 @@ import {
   Unlock,
   X,
   Plus,
-  Tag
+  Tag,
+  Trash2
 } from 'lucide-react';
 import { tiptapExtensions } from '@/lib/tiptap-extensions'
+
+// Define the full form schema including FAQs
+const blogPostSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  content: z.any(),
+  authorId: z.string().optional(), // Make optional instead of required
+  excerpt: z.string().optional(),
+  featuredImage: z.string().url().optional().or(z.literal('')),
+  status: z.enum(['DRAFT', 'IN_REVIEW', 'PUBLISHED', 'ARCHIVED']),
+  categoryId: z.string().optional().or(z.literal('none')),
+  tagIds: z.array(z.string()).optional(),
+  seoTitle: z.string().optional(),
+  seoDescription: z.string().optional(),
+  faqs: z.array(z.object({
+    question: z.string().min(1, 'Question cannot be empty.'),
+    answer: z.string().min(1, 'Answer cannot be empty.'),
+  })).optional(),
+});
+
+type BlogPostFormValues = z.infer<typeof blogPostSchema>;
 
 interface BlogEditorProps {
   postId?: string;
@@ -48,10 +74,12 @@ interface BlogEditorProps {
     tagIds?: string[];
     seoTitle?: string;
     seoDescription?: string;
+    authorId?: string;
+    faqs?: Array<{ question: string; answer: string }>;
   };
   categories: Array<{ id: string; name: string; slug: string }>;
   tags: Array<{ id: string; name: string; slug: string }>;
-  onSave?: (data: any) => void;
+  onSave?: (data: BlogPostFormValues) => void;
   readOnly?: boolean;
 }
 
@@ -64,14 +92,31 @@ export function BlogEditor({
   readOnly = false 
 }: BlogEditorProps) {
   const { toast } = useToast();
-  const [title, setTitle] = useState(initialData?.title || '');
-  const [excerpt, setExcerpt] = useState(initialData?.excerpt || '');
-  const [featuredImage, setFeaturedImage] = useState(initialData?.featuredImage || '');
-  const [status, setStatus] = useState(initialData?.status || 'DRAFT');
-  const [categoryId, setCategoryId] = useState(initialData?.categoryId || 'none');
-  const [selectedTags, setSelectedTags] = useState<string[]>(initialData?.tagIds || []);
-  const [seoTitle, setSeoTitle] = useState(initialData?.seoTitle || '');
-  const [seoDescription, setSeoDescription] = useState(initialData?.seoDescription || '');
+  
+  // Form setup with validation
+  const form = useForm<BlogPostFormValues>({
+    resolver: zodResolver(blogPostSchema),
+    defaultValues: {
+      title: initialData?.title || '',
+      content: initialData?.content || undefined,
+      authorId: initialData?.authorId || 'none',
+      excerpt: initialData?.excerpt || '',
+      featuredImage: initialData?.featuredImage || '',
+      status: initialData?.status || 'DRAFT',
+      categoryId: initialData?.categoryId || 'none',
+      tagIds: initialData?.tagIds || [],
+      seoTitle: initialData?.seoTitle || '',
+      seoDescription: initialData?.seoDescription || '',
+      faqs: initialData?.faqs || [],
+    },
+  });
+
+  const { fields: faqFields, append: appendFaq, remove: removeFaq } = useFieldArray({
+    control: form.control,
+    name: "faqs",
+  });
+
+  // Keep some state for UI-specific functionality
   const [isLocked, setIsLocked] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -81,6 +126,9 @@ export function BlogEditor({
   const [newTagName, setNewTagName] = useState('');
   const [showCreateTag, setShowCreateTag] = useState(false);
   const [isCreatingTag, setIsCreatingTag] = useState(false);
+  
+  // Author-related state
+  const [authors, setAuthors] = useState<Array<{ id: string; name: string }>>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,11 +143,34 @@ export function BlogEditor({
       const words = text.split(/\s+/).filter(word => word.length > 0).length;
       setWordCount(words);
       setReadingTime(Math.max(1, Math.ceil(words / 200)));
+      
+      // Update form with new content
+      form.setValue('content', content);
+      
       if (!readOnly && postId) {
-        handleAutoSave(title, content);
+        const currentTitle = form.getValues('title');
+        handleAutoSave(currentTitle, content);
       }
     },
   });
+
+  // Fetch authors when component mounts
+  useEffect(() => {
+    async function fetchAuthors() {
+      try {
+        const response = await fetch('/api/admin/authors');
+        if (response.ok) {
+          const authorsData = await response.json();
+          setAuthors(authorsData);
+        } else {
+          console.error('Failed to fetch authors');
+        }
+      } catch (error) {
+        console.error('Error fetching authors:', error);
+      }
+    }
+    fetchAuthors();
+  }, []);
 
   // Lock/unlock post for editing
   const handleLockToggle = useCallback(async () => {
@@ -154,23 +225,23 @@ export function BlogEditor({
     [postId, readOnly]
   );
 
-  // Manual save
-  const handleSave = async () => {
+  // Main save function using form data
+  const handleSave = async (data: BlogPostFormValues) => {
     if (!editor || readOnly) return;
     
     setIsSaving(true);
     
     try {
-      const data = {
-        title,
+      // Ensure content is up to date
+      const finalData = {
+        ...data,
         content: editor.getJSON(),
-        excerpt,
-        featuredImage: featuredImage || undefined,
-        status,
-        categoryId: categoryId !== 'none' ? categoryId : undefined,
-        tagIds: selectedTags,
-        seoTitle: seoTitle || undefined,
-        seoDescription: seoDescription || undefined,
+        categoryId: data.categoryId === 'none' ? undefined : data.categoryId || undefined,
+        authorId: data.authorId === 'none' ? undefined : data.authorId || undefined,
+        featuredImage: data.featuredImage || undefined,
+        seoTitle: data.seoTitle || undefined,
+        seoDescription: data.seoDescription || undefined,
+        tagIds: data.tagIds || [],
       };
 
       let response;
@@ -179,13 +250,13 @@ export function BlogEditor({
         response = await fetch(`/api/admin/blog/posts/${postId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
+          body: JSON.stringify(finalData),
         });
       } else {
         response = await fetch('/api/admin/blog/posts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
+          body: JSON.stringify(finalData),
         });
       }
 
@@ -224,14 +295,15 @@ export function BlogEditor({
     if (!postId) return;
     
     try {
+      const currentStatus = form.getValues('status');
       const endpoint = `/api/admin/blog/posts/${postId}/publish`;
-      const method = status === 'PUBLISHED' ? 'DELETE' : 'POST';
+      const method = currentStatus === 'PUBLISHED' ? 'DELETE' : 'POST';
       
       const response = await fetch(endpoint, { method });
       
       if (response.ok) {
-        const newStatus = status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
-        setStatus(newStatus);
+        const newStatus = currentStatus === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+        form.setValue('status', newStatus);
         toast({
           title: 'Success',
           description: newStatus === 'PUBLISHED' ? 'Post published successfully' : 'Post unpublished successfully',
@@ -270,16 +342,18 @@ export function BlogEditor({
 
   // Handle tag selection
   const handleTagToggle = (tagId: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagId) 
-        ? prev.filter(id => id !== tagId)
-        : [...prev, tagId]
-    );
+    const currentTagIds = form.getValues('tagIds') || [];
+    const newTagIds = currentTagIds.includes(tagId) 
+      ? currentTagIds.filter(id => id !== tagId)
+      : [...currentTagIds, tagId];
+    form.setValue('tagIds', newTagIds);
   };
 
   // Remove tag
   const handleRemoveTag = (tagId: string) => {
-    setSelectedTags(prev => prev.filter(id => id !== tagId));
+    const currentTagIds = form.getValues('tagIds') || [];
+    const newTagIds = currentTagIds.filter(id => id !== tagId);
+    form.setValue('tagIds', newTagIds);
   };
 
   // Create new tag
@@ -301,7 +375,8 @@ export function BlogEditor({
         // Update the tags prop if possible (this would need to be passed from parent)
         
         // Auto-select the new tag
-        setSelectedTags(prev => [...prev, newTag.id]);
+        const currentTagIds = form.getValues('tagIds') || [];
+        form.setValue('tagIds', [...currentTagIds, newTag.id]);
         setNewTagName('');
         setShowCreateTag(false);
         
@@ -329,7 +404,8 @@ export function BlogEditor({
   };
 
   const getSelectedTagNames = () => {
-    return tags.filter(tag => selectedTags.includes(tag.id));
+    const selectedTagIds = form.watch('tagIds') || [];
+    return tags.filter(tag => selectedTagIds.includes(tag.id));
   };
 
   if (!editor) {
@@ -375,77 +451,133 @@ export function BlogEditor({
           
           {postId && (
             <Button
-              variant={status === 'PUBLISHED' ? 'secondary' : 'default'}
+              variant={form.watch('status') === 'PUBLISHED' ? 'secondary' : 'default'}
               size="sm"
               onClick={handlePublishToggle}
               disabled={readOnly}
             >
-              {status === 'PUBLISHED' ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
-              {status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
+              {form.watch('status') === 'PUBLISHED' ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+              {form.watch('status') === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
             </Button>
           )}
           
           <Button
-            onClick={handleSave}
-            disabled={isSaving || readOnly}
+            onClick={() => form.handleSubmit(handleSave)()}
+            disabled={form.formState.isSubmitting || readOnly}
           >
             <Save className="w-4 h-4 mr-2" />
-            {isSaving ? 'Saving...' : 'Save'}
+            {form.formState.isSubmitting ? 'Saving...' : 'Save'}
           </Button>
         </div>
       </div>
 
-      {/* Title */}
-      <Input
-        placeholder="Post title..."
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="text-3xl font-bold border-none px-0 py-4 h-auto"
-        disabled={readOnly}
-      />
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6">
+          {/* Title */}
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    placeholder="Post title..."
+                    className="text-3xl font-bold border-none px-0 py-4 h-auto"
+                    disabled={readOnly}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-      {/* Metadata */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="text-sm font-medium">Category</label>
-          <Select value={categoryId} onValueChange={setCategoryId} disabled={readOnly}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No category</SelectItem>
-              {categories.map(category => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          {/* Metadata */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={readOnly}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No category</SelectItem>
+                        {categories.map(category => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
         
-        <div>
-          <label className="text-sm font-medium">Status</label>
-          <Select value={status} onValueChange={(value: any) => setStatus(value)} disabled={readOnly}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="IN_REVIEW">In Review</SelectItem>
-              <SelectItem value="PUBLISHED">Published</SelectItem>
-              <SelectItem value="ARCHIVED">Archived</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            <FormField
+              control={form.control}
+              name="authorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Author</FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={readOnly}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select author" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No author</SelectItem>
+                        {authors.map(author => (
+                          <SelectItem key={author.id} value={author.id}>
+                            {author.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
         
-        <div>
-          <label className="text-sm font-medium">Stats</label>
-          <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-2">
-            <span>{wordCount} words</span>
-            <span>{readingTime} min read</span>
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={readOnly}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="IN_REVIEW">In Review</SelectItem>
+                        <SelectItem value="PUBLISHED">Published</SelectItem>
+                        <SelectItem value="ARCHIVED">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div>
+              <label className="text-sm font-medium">Stats</label>
+              <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-2">
+                <span>{wordCount} words</span>
+                <span>{readingTime} min read</span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
       {/* Tags */}
       <div>
@@ -477,7 +609,7 @@ export function BlogEditor({
                 </SelectTrigger>
                 <SelectContent>
                   {tags
-                    .filter(tag => !selectedTags.includes(tag.id))
+                    .filter(tag => !(form.watch('tagIds') || []).includes(tag.id))
                     .map(tag => (
                       <SelectItem key={tag.id} value={tag.id}>
                         <div className="flex items-center gap-2">
@@ -486,7 +618,7 @@ export function BlogEditor({
                         </div>
                       </SelectItem>
                     ))}
-                  {tags.filter(tag => !selectedTags.includes(tag.id)).length === 0 && (
+                  {tags.filter(tag => !(form.watch('tagIds') || []).includes(tag.id)).length === 0 && (
                     <SelectItem value="no-tags" disabled>
                       No more tags available
                     </SelectItem>
@@ -698,67 +830,174 @@ export function BlogEditor({
       </div>
 
       {/* Excerpt */}
-      <div>
-        <label className="text-sm font-medium">Excerpt</label>
-        <Textarea
-          placeholder="Brief description of your post..."
-          value={excerpt}
-          onChange={(e) => setExcerpt(e.target.value)}
-          className="mt-2"
-          disabled={readOnly}
-        />
-      </div>
+      <FormField
+        control={form.control}
+        name="excerpt"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Excerpt</FormLabel>
+            <FormControl>
+              <Textarea
+                placeholder="Brief description of your post..."
+                {...field}
+                className="mt-2"
+                disabled={readOnly}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
 
       {/* Featured Image */}
-      <div>
-        <label className="text-sm font-medium">Featured Image URL</label>
-        <Input
-          placeholder="https://example.com/image.jpg"
-          value={featuredImage}
-          onChange={(e) => setFeaturedImage(e.target.value)}
-          className="mt-2"
-          disabled={readOnly}
-        />
-        {featuredImage && (
-          <img 
-            src={featuredImage} 
-            alt="Featured" 
-            className="mt-2 max-w-xs rounded border"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
+      <FormField
+        control={form.control}
+        name="featuredImage"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Featured Image URL</FormLabel>
+            <FormControl>
+              <Input
+                placeholder="https://example.com/image.jpg"
+                {...field}
+                className="mt-2"
+                disabled={readOnly}
+              />
+            </FormControl>
+            <FormMessage />
+            {field.value && (
+              <img 
+                src={field.value} 
+                alt="Featured" 
+                className="mt-2 max-w-xs rounded border"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            )}
+          </FormItem>
         )}
-      </div>
+      />
 
       {/* SEO Settings */}
       {showSeoSettings && (
         <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
           <h3 className="font-semibold">SEO Settings</h3>
           
-          <div>
-            <label className="text-sm font-medium">SEO Title</label>
-            <Input
-              placeholder="Custom title for search engines"
-              value={seoTitle}
-              onChange={(e) => setSeoTitle(e.target.value)}
-              className="mt-2"
-              disabled={readOnly}
-            />
-          </div>
+          <FormField
+            control={form.control}
+            name="seoTitle"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>SEO Title</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Custom title for search engines"
+                    {...field}
+                    className="mt-2"
+                    disabled={readOnly}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           
-          <div>
-            <label className="text-sm font-medium">SEO Description</label>
-            <Textarea
-              placeholder="Meta description for search engines"
-              value={seoDescription}
-              onChange={(e) => setSeoDescription(e.target.value)}
-              className="mt-2"
-              disabled={readOnly}
-            />
-          </div>
+          <FormField
+            control={form.control}
+            name="seoDescription"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>SEO Description</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Meta description for search engines"
+                    {...field}
+                    className="mt-2"
+                    disabled={readOnly}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
       )}
+
+      {/* FAQ Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">FAQ</h3>
+          {!readOnly && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendFaq({ question: '', answer: '' })}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add FAQ
+            </Button>
+          )}
+        </div>
+
+        {faqFields.map((field, index) => (
+          <div key={field.id} className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium">FAQ {index + 1}</h4>
+              {!readOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeFaq(index)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+
+            <FormField
+              control={form.control}
+              name={`faqs.${index}.question`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Question</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter FAQ question"
+                      {...field}
+                      disabled={readOnly}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name={`faqs.${index}.answer`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Answer</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter FAQ answer"
+                      {...field}
+                      disabled={readOnly}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        ))}
+      </div>
+
+        </form>
+      </Form>
     </div>
   );
 }

@@ -264,6 +264,7 @@ export async function getBlogPosts(options: {
   } = options;
 
   const skip = (page - 1) * limit;
+  const take = limit;
 
   const where: any = {};
 
@@ -292,46 +293,52 @@ export async function getBlogPosts(options: {
     ];
   }
 
-  const [posts, total] = await Promise.all([
-    prisma.blogPost.findMany({
-      where,
-      include: {
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        tags: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        lastEditedBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
+  // ... inside your getBlogPosts function
+
+// ... inside your getBlogPosts function
+
+const [posts, total] = await Promise.all([
+  prisma.blogPost.findMany({
+    where,
+    include: {
+      author: {
+        select: {
+          id: true,
+          name: true,
+        }
       },
-      orderBy: { [orderBy]: orderDirection },
-      skip,
-      take: limit,
-    }),
-    prisma.blogPost.count({ where }),
-  ]);
+      category: {
+        select: {
+          id: true,
+          name: true,
+        }
+      },
+      tags: {
+        select: {
+          id: true,
+          name: true,
+        }
+      },
+      // --- THIS IS THE CORRECTED PART ---
+      lastEditedBy: {
+        select: {
+          id: true,
+          email: true, // Select the 'email' field instead of first/last name
+        }
+      }
+      // --- END OF CORRECTION ---
+    },
+    orderBy: {
+      [orderBy]: orderDirection,
+    },
+    skip,
+    take,
+  }),
+  prisma.blogPost.count({ where }),
+]);
+
+// ... rest of the function
+// ... rest of the function
 
   return {
     posts,

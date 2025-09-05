@@ -6,32 +6,30 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 model User {
-  id                String         @id @default(uuid())
-  email             String?        @unique
-  phoneNumber       String?        @unique
-  authMethod        AuthMethod
-  password          String
-  firstName         String?
-  lastName          String?
-  role              Role           @default(USER)
-  isVerified        Boolean        @default(false)
+  id               String         @id @default(uuid())
+  email            String?        @unique
+  phoneNumber      String?        @unique
+  authMethod       AuthMethod
+  password         String
+  role             Role           @default(USER)
+  isVerified       Boolean        @default(false)
   verificationToken String?
-  resetToken        String?
-  resetTokenExpiry  DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  addresses         Address[]
-  appointments      Appointment[]
-  blogPosts         BlogPost[]
-  editedPosts       BlogPost[]     @relation("LastEditor")
-  cart              CartItem[]
-  consultations     Consultation[]
-  sentInvitations   Invitation[]
-  orders            Order[]
-  reviews           Review[]
-  wishlist          WishlistItem[]
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  // Relations
+  addresses        Address[]
+  appointments     Appointment[]
+  editedPosts      BlogPost[]     @relation("LastEditor") // This one is correct, leave it.
+  cart             CartItem[]
+  consultations    Consultation[]
+  sentInvitations  Invitation[]
+  orders           Order[]
+  reviews          Review[]
+  wishlist         WishlistItem[]
 
   @@index([email])
   @@index([phoneNumber])
@@ -397,37 +395,47 @@ model UserDiscountUsage {
 }
 
 model BlogPost {
-  id             String          @id @default(uuid())
-  title          String
-  slug           String          @unique
-  categoryId     String?
-  seoTitle       String?
-  seoDescription String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  authorId       String
-  autosaveDraft  Json?
-  autosavedAt    DateTime?
-  faqs           BlogFAQ[]
-  authorId String
-  author   AuthorProfile @relation(fields: [authorId], references: [id])
-  excerpt        String?
-  featuredImage  String?
-  isLocked       Boolean         @default(false)
-  lastEditedById String?
-  lockedAt       DateTime?
-  lockedBy       String?
-  publishedAt    DateTime?
-  readingTime    Int?
-  version        Int             @default(1)
-  views          Int             @default(0)
-  content        Json
-  status         BlogStatus      @default(DRAFT)
-  analytics      BlogAnalytics[]
-  author         User            @relation(fields: [authorId], references: [id])
-  category       BlogCategory?   @relation(fields: [categoryId], references: [id])
-  lastEditedBy   User?           @relation("LastEditor", fields: [lastEditedById], references: [id])
-  tags           BlogTag[]       @relation("BlogPostToBlogTag")
+  id              String        @id @default(uuid())
+  title           String
+  slug            String        @unique
+  content         Json          // Tiptap JSON content
+  excerpt         String?       @db.Text
+  featuredImage   String?
+  status          BlogStatus    @default(DRAFT)
+  publishedAt     DateTime?
+  
+  // THIS IS THE CORRECT AUTHOR RELATIONSHIP
+  authorId        String
+  author          AuthorProfile @relation(fields: [authorId], references: [id])
+
+  category        BlogCategory? @relation(fields: [categoryId], references: [id])
+  categoryId      String?
+  tags            BlogTag[]     @relation("BlogPostToBlogTag")
+  readingTime     Int?          // Estimated reading time in minutes
+  views           Int           @default(0)
+  isLocked        Boolean       @default(false)
+  lockedBy        String?       // User ID who locked the post
+  lockedAt        DateTime?
+  
+  // SEO fields
+  seoTitle        String?
+  seoDescription  String?       @db.Text
+  
+  // Version control
+  version         Int           @default(1)
+  lastEditedBy    User?         @relation("LastEditor", fields: [lastEditedById], references: [id])
+  lastEditedById  String?
+  
+  // Auto-save drafts
+  autosaveDraft   Json?
+  autosavedAt     DateTime?
+  
+  // Relations
+  faqs            BlogFAQ[]
+  analytics       BlogAnalytics[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([authorId])
   @@index([categoryId])
