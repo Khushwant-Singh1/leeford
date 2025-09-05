@@ -274,13 +274,13 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
       '@types/node':
-        specifier: ^20
+        specifier: ^20.19.11
         version: 20.19.11
       '@types/nodemailer':
         specifier: ^7.0.1
         version: 7.0.1
       '@types/react':
-        specifier: ^19
+        specifier: ^19.1.11
         version: 19.1.11
       '@types/react-dom':
         specifier: ^19
@@ -304,7 +304,7 @@ importers:
         specifier: ^4.20.5
         version: 4.20.5
       typescript:
-        specifier: ^5
+        specifier: ^5.9.2
         version: 5.9.2
 
 packages:
